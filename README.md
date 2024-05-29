@@ -1,12 +1,12 @@
-# Geometry-informed Neural Networks (GINNs)
+# Geometry-Informed Neural Networks (GINNs)
 
 This project accompanies the paper "Geometry-informed Neural Networks", which does objective-based generation without examples.
 
-### [Project Page](https://arturs-berzins.github.io/GINN) | [arXiv](https://arxiv.org/abs/2402.14009)
+### [Project page](https://arturs-berzins.github.io/GINN) | [arXiv](https://arxiv.org/abs/2402.14009)
 
 <img src="media/title.png" width="800"/>
 
-## High level description
+## High-level description
 
 ```
 /
@@ -29,9 +29,9 @@ This project accompanies the paper "Geometry-informed Neural Networks", which do
 
 ## How to get started?
 
-### Minimum Surface
+### Minimal surface
 
-Plateau’s problem is to find the surface $S$ with the minimal area given a prescribed boundary $\Gamma$ (a closed curve in $X \in \mathbb{R}$).
+Plateau’s problem is to find the surface $S$ with the minimal area given a prescribed boundary $\Gamma$ (a closed curve in $X \in \mathbb{R}^3$).
 A minimal surface is known to have zero mean curvature $\kappa_H$ everywhere.
 
 With [notebooks/minimal_surface.ipynb](notebooks/minimal_surface.ipynb) you can train a neural network to learn a shape with minimal surface. It just takes a few seconds to converge.
@@ -39,7 +39,7 @@ With [notebooks/minimal_surface.ipynb](notebooks/minimal_surface.ipynb) you can 
 <img src="media/minsurf.png" width="300"/>
 
 
-### Gray-scott Reaction-diffusion
+### Gray-scott model of reaction-diffusion
 Reaction-diffusion systems were introduced by Alan Turing to explain how patterns
 in nature, such as stripes and spots, can form as a result of a simple physical process of reaction and
 diffusion of two substances. A celebrated model of such a system is the Gray-Scott model, which
@@ -55,15 +55,21 @@ For more details, see [our paper](https://arxiv.org/abs/2402.14009), Section 4.3
 <img src="media/gray_scott.png" width="600"/>
 
 
-## Obstacle problem
+### Obstacle
 
 Install the necessary dependencies
 
     pip install -r requirements.txt
 
-You can start training a shape for the obstacle problem by specifying the config from the 'configs' folder.
+You can start training a shape for the obstacle by specifying the config from the 'configs' folder.
 
     python run.py --gpu_list 0 --yml obst2d_siren.yml
+
+Training with 16 latent codes from scratch takes around 5 hours on a Titan V GPU (12 GB RAM).
+The following Figure shows the shapes of 16 latent codes of a softplus-MLP model trained with explicit diversity.
+
+<img src="media/obstacle.png" width="600"/>
+
 
 ### Jet engine bracket
 
@@ -71,9 +77,8 @@ The problem specification for the jet engine bracked (JEB) draws inspiration fro
 
 <img src="media/jeb_training.gif" width="600"/>
 
-You can finetune a jet engine bracked using the notebook [_quickstart_3d.ipynb](_quickstart_3d.ipynb). 
+You can finetune a jet engine bracket using the notebook [_quickstart_3d.ipynb](_quickstart_3d.ipynb). 
 The notebook only performs a few training iterations as training a single neural network to produce a shape from scratch takes around 15 hours on a Titan V GPU (12 GB RAM).
 For the jet engine bracket, we recommend to follow these steps:
-- First precompute and save points of the jet enging design problem. This can be done by using the code in `/notebooks/mesh_to_samples.ipynb`.
+- First precompute and save points of the jet engine bracket design problem. This can be done by using the code in `/notebooks/mesh_to_samples.ipynb`.
 - Then use the `simjeb_cond_siren.yml` config.
-
