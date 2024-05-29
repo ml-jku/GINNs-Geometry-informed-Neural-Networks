@@ -1,0 +1,151 @@
+## Model
+model: 'cond_general_resnet'
+activation: 'softplus' # sin, relu, softplus, tanh 
+layers: [3, 512, 512, 512, 512, 1]
+seed: 17
+level_set: 0
+nx: 2 # input is 2D
+ny: 1 # output is a scalar
+nz: 1
+batch_size: 2 # usually denoted as bz in the code
+plot_n_shapes: 2 # must not be bigger than batch_size
+use_x_and_z_arg: True  # used when creating the stateless model\
+# reset_zlatents_every_n_epochs: 20  # not set means it is kept fix
+z_sample_method: 'uniform'
+z_sample_interval: [-1.0, 1.0]
+
+## Constraints
+problem: 'simple_2d'
+envelope_sample_from: 'exterior'
+## Number of points to sample
+n_points_domain: 512
+n_points_envelope: 512
+n_points_interfaces: 128
+n_points_normals: 128
+n_points_obstacles: 128
+n_points_eikonal: 256
+n_points_find_surface: 256
+
+
+#### HYPERPARAMETERS ####
+
+
+## Loss-balancing
+lambda_bc: 1.
+lambda_env: 1.
+lambda_obst: 0.1
+lambda_normal: 1.0e-2
+# global
+# lambda_scc: 0
+lambda_scc: 1.e-2
+lambda_eikonal: 1.0e-5
+# lambda_div: 0
+lambda_div: 1.0e-4
+lambda_curv: 0.0
+
+
+# related
+diversity_loss_eps: 1.0e-4
+
+## Outer optimization loop
+max_epochs: 1000
+lr: 0.001
+use_scheduler: True
+scheduler_gamma: 0.5
+decay_steps: 1000
+grad_clipping_on: True
+grad_clip: 0.5
+
+
+#### CONNECTIVITY ####
+
+## Critical points
+n_points_find_cps: 256
+lr_find_cps: 0.005
+lr_adjust_cps: 0.001 # should be much smaller than lr_find_cps
+max_iter_find_cps: 1000
+# check_times_proximity_mask: [20, 50, 200, 500]
+check_times_proximity_mask: []
+
+## Saddle point descent
+n_iter_saddle_descent: 1000
+lr_saddle_descent: 0.03
+perturbation_saddle_descent: 0.01
+stop_grad_mag_saddle_descent: 1.0e-5
+check_interval_grad_mag_saddle_descent: 5
+
+recalc_cps_every_n_epochs: 20
+plot_every_n_epochs: 10
+
+## Clustering
+dbscan.y_x_mag: 1.0e-5  # filter out points with high gradient magnitude (not converged)
+dbscan.eps: 0.05 # spatial extent for clustering
+
+## Graph algorithm
+graph_algo_inv_dist_eps: 0.1
+
+## SCC algorithm
+scc_penalty_norm_eps: 1.0e-4
+
+#### DIVERSITY ####
+
+## Distance in function space
+recompute_surface_pts_every_n_epochs: 10
+find_surface_pts_n_iter: 200
+lr_find_surface: 0.01
+adam_betas_find_surface: [0.9, 0.999]  # default: [0.9, 0.999]
+hypergrad_lr_find_surface: 1.0e-1
+find_surface_pts_prec_eps: 1.0e-6  ## may stop if all the points are either outside of the boundary or epsilon-close to the surface
+find_surface_pts_converged_interval: 10
+remove_surface_pts_closer_than_x_to_interface: 0.1  # only in use if > 0
+
+
+#### LOGGING ####
+
+## Wandb
+wandb_experiment_name: 'cond_general_resnet_2024'
+#wandb_run_group: "model_1"
+
+## Weights
+load_model: False
+model_save_path: '/system/user/publicwork/radler/objgen/saved_models'
+# model_load_path: /system/user/publicwork/radler/objgen/saved_models/cond_general_net/2023-12-04_22:25:46_t86pyy9j.pth
+model_load_path: '/system/user/publicwork/radler/objgen/saved_models/cond_general_resnet/2023-12-12_16:40:50_9qjeobxa.pth'  # layers: 6x512; bz: 16; good results
+save_every_n_epochs: 10
+
+## Timer
+timer_print: False
+timer_accumulate: True ## record and print the accumulated timings at the end
+
+## Multi-processing
+num_workers: 0  # 0 means no multi-processing
+
+## Plotting
+fig_path: 'img/cond_general_resnet' ## must be set if fig_show True
+fig_size: [12, 7]
+fig_show: False
+fig_save: False
+fig_wandb: True
+force_saving_shape: False ## TODO
+show_colorbar: True
+
+## Specific plots
+plot_shape: True
+plot_start_points_to_find_cps: True
+plot_cp_descent_refinement: True
+plot_cp_descent_recomputation: True
+trajectories_use_colors: True
+plot_trajectories_every_n_iter: 100
+plot_cps: True
+plot_cp_candidates: True
+plot_grad_mag_hist: True
+plot_perturbed_sps: False
+plot_characterized_cps: True
+plot_saddle_descent: True
+plot_edges: True
+plot_surfnet_graph: True
+plot_intermediate_wd_graph: True
+plot_sub_and_neighbor_wd_graph: True
+plot_surface_points: True
+plot_wd_graph: True
+plot_surface_descent: True

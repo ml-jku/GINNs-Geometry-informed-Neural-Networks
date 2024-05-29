@@ -1,0 +1,28 @@
+wandb
+img
+_scratch
+
+*.sh
+**/*.aux
+**/*.log
+**/*.nav
+**/*.out
+**/*.snm
+**/*.synctex
+**/*.bbl
+**/*.blg
+**/*.synctex.gz
+**/*.toc
+**/.ipynb_checkpoints
+**/.idea
+**/.vscode
+# ignore __pycache__ folders
+**/__pycache__
+# # ignore __pycache__ folders in subfolders
+__pycache__/*
+
+# ignore .pytest_cache folders
+**/.pytest_cache
+# ignore .DS_Store files
+**/.DS_Store
+

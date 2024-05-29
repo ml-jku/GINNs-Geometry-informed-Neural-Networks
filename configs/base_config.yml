@@ -1,0 +1,6 @@
+wandb_entity_name: 'abra'
+wandb_project_name: "objgen"
+
+seed: 11
+
+use_x_and_z_arg: False
