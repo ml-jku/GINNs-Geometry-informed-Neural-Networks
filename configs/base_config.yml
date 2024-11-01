@@ -1,6 +1,151 @@
+###################
+## Model
+###################
+ny: 1 # output is a scalar
+
+
+###################
+## Data
+###################
+data_dir: 'path/to/sdf_samples'
+
+
+###################
+## GINN
+###################
+flatten_plots: False  # flatten the plots into a row
+
+
+###################
+## Loss-balancing
+###################
+
+## Loss balencing by rescaling lambdas
+weight_rescale_on: False
+weight_rescale_interval: 100
+weight_rescale_alpha: 0.9
+use_augmented_lagrangian: True
+adaptive_penalty_updates: True
+
+###################
+## Curvature
+###################
+## inspired by https://arxiv.org/abs/2103.04856
+curvature_expression: '4*H**2 - 2*K'  # E_strain
+strain_curvature_clip_max: 1.0e+6
+curvature_use_gradnorm_weights: False
+
+
+###################
+## SCC algorithm
+###################
+ph_loss_sub0_points: False
+ph_loss_super0_points: False
+
+
+###################
+## Surface points
+###################
+surf_pts_lr: 0.01 ## learning rate for non-Newton optimizer
+surf_pts_n_iter: 10 # iterations of surface flow
+surf_pts_prec_eps: 1.0e-3  ## precision threshold for early stopping surface flow and filtering the points 
+surf_pts_converged_interval: 1 ## how often to check the convergence
+surf_pts_use_newton: True ## whether to use Newton iteration or Adam
+surf_pts_newton_clip: 0.15 ## magnitude for clipping the Newton update
+surf_pts_inflate_bounds_amount: 0.05 ## inflate the (otherwise tight) bounding box by this fraction
+surf_pts_uniform_n_iter: 10 ## nof iterations for repelling the points
+surf_pts_uniform_nof_neighbours: 16 ## nof neighbors for knn
+surf_pts_uniform_stepsize: 0.75 ## step size for the repelling update
+surf_pts_uniform_n_iter_reproj: 5 ## nof Newton-iterations for reprojecting the points
+surf_pts_uniform_prec_eps: 1.0e-3 ## precision for reprojection (similar to above)
+surf_pts_uniform_min_count: 1000 ## minimum number of points to redistribute. Less than this is meaningless
+surf_pts_surpress_tqdm: True
+surf_pts_uniform_reproject_surpress_tqdm: True
+
+
+
+###################
+## DIVERSITY
+###################
+div_norm_order: 2
+div_neighbor_agg_fn: 'min'  # mean, sum, min
+exclude_surface_points_close_to_interface: True
+exclude_surface_points_close_to_interface_cutoff: 0.025
+
+###################
+## Metrics computation
+###################
+shape_metrics_every_n_epochs: 1000000  # off by default
+val_shape_metrics_every_n_epochs: 1000000  # off by default
+metrics_diversity_inner_agg_fns: ['sum'] #, 'min', 'mean']
+metrics_diversity_outer_agg_fns: ['sum'] #, 'mean']
+metrics_diversity_ps: [0.5] #, 1, 2]
+metrics_chamfer_orders: [2] # 1,]
+metrics_diversity_n_samples: 1000
+chamfer_metrics_vectorize: True
+
+###################
+## LOGGING
+###################
 wandb_entity_name: 'abra'
-wandb_project_name: "objgen"
+wandb_project_name: "topginn"
+fig_path: 'img/simjeb/lip_siren' ## must be set if fig_show True
+fig_size: [12, 7]
+fig_show: False
+fig_save: False
+fig_wandb: True
+force_saving_shape: False ## TODO
+show_colorbar: True
 
+## Meshing
+mc_chunks: 1
+mesh_reduction: 0.9  # 0.9 means 10% of the original resolution
+
+## Multi-processing
+num_workers: 8  # 0 means no multi-processing
+mc_resolution: 128
+
+## Timer
+timer_print: False
+timer_accumulate: True ## record and print the accumulated timings at the end
+
+
+###################
+## Problem
+###################
+level_set: 0
+simjeb_root_dir: 'GINN/simJEB/data'
+envelope_sample_from: 'exterior'
+
+
+###################
+## Training
+###################
 seed: 11
+## Outer optimization loop
+lr: 0.001
+## optimizer
+opt: adam  # adam, lbfgs, adam_lbfgs, adam_nncg, adam_lbfgs_nncg
+## scheduler
+use_scheduler: False
+scheduler_gamma: 0.5
+decay_steps: 5000
+## gradient clipping
+grad_clipping_on: True
+grad_clip: 0.5
+## autoclip: https://arxiv.org/abs/2007.14469
+auto_clip_on: True
+auto_clip_percentile: 0.8
+auto_clip_hist_len: 50
+auto_clip_min_len: 50
 
-use_x_and_z_arg: False
+## Weight saving
+# model_save_path: '_saved_models'
+model_save_path: 'saved_models'
+save_optimizer: True
+
+## Weight loading
+load_mos: False  # load model, optimizer, scheduler
+load_model: False
+load_optimizer: False
+load_scheduler: False

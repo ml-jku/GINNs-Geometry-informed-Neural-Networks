@@ -74,6 +74,7 @@ class SIREN(nn.Module):
         """
         SIREN model from the paper [Implicit Neural Representations with
         Periodic Activation Functions](https://arxiv.org/abs/2006.09661).
+        Implementation modified from : https://github.com/dalmia/siren/tree/master/siren
 
         :param layers: list of number of neurons in each hidden layer
         :type layers: List[int]
@@ -130,7 +131,8 @@ class SIREN(nn.Module):
     
     
 class ConditionalSIREN(nn.Module):
-    def __init__(self, layers: List[int],
+    def __init__(self, 
+                 layers: List[int],
                  w0: float = 1.0,
                  w0_initial: float = 30.0,
                  bias: bool = True,
@@ -139,6 +141,7 @@ class ConditionalSIREN(nn.Module):
         """
         SIREN model from the paper [Implicit Neural Representations with
         Periodic Activation Functions](https://arxiv.org/abs/2006.09661).
+        Implementation modified from : https://github.com/dalmia/siren/tree/master/siren
 
         :param layers: list of number of neurons in each layer, including the
             input and output layers; e.g. [2, 3, 1] means 2 input, 1 output
@@ -174,6 +177,7 @@ class ConditionalSIREN(nn.Module):
                 Sine(w0=w0)
             ])
 
+
         self.layers.append(nn.Linear(layers[-2], layers[-1], bias=bias))
         self.network = nn.Sequential(*self.layers)
 
@@ -191,3 +195,74 @@ class ConditionalSIREN(nn.Module):
         xz = torch.cat([x, z], dim=-1)
         res = self.network(xz)
         return res
+    
+class LatentModulatedSiren(nn.Module):
+    def __init__(self, 
+                 layers: List[int],
+                 w0: float = 1.0,
+                 w0_initial: float = 30.0,
+                 bias: bool = True,
+                 initializer: str = 'siren',
+                 c: float = 6,
+                 latent_dim: int = 1):
+        """
+        SIREN model from the paper [Implicit Neural Representations with
+        Periodic Activation Functions](https://arxiv.org/abs/2006.09661).
+
+        :param layers: list of number of neurons in each layer, including the
+            input and output layers; e.g. [2, 256, 256, 256, 1] means 2 input, 1 output and 3 hidden layers with 256 neurons each
+        :type layers: List[int]
+        :param w0: w0 in the activation step `act(x; w0) = sin(w0 * x)`.
+            defaults to 1.0
+        :type w0: float, optional
+        :param w0_initial: `w0` of first layer. defaults to 30 (as used in the
+            paper)
+        :type w0_initial: float, optional
+        :param bias: whether to use bias or not. defaults to
+            True
+        :type bias: bool, optional
+        :param initializer: specifies which initializer to use. defaults to
+            'siren'
+        :type initializer: str, optional
+        :param c: value used to compute the bound in the siren intializer.
+            defaults to 6
+        :type c: float, optional
+
+        # References:
+            -   [From data to functa](https://arxiv.org/abs/2201.12204)
+        """
+        super(LatentModulatedSiren, self).__init__()
+        self.layers = nn.ModuleList()
+        self.mod_layer = nn.Linear(latent_dim, sum(layers[1:-1]), bias=True)  # Modulation layer for all hidden layers
+
+        self.layers.append(nn.Linear(layers[0], layers[1], bias=bias))
+        self.layers.append(Sine(w0=w0_initial))
+
+        for index in range(1, len(layers) - 1):
+            self.layers.append(nn.Linear(layers[index], layers[index + 1], bias=bias))
+            if index < len(layers) - 2:
+                self.layers.append(Sine(w0=w0))
+
+        self.network = nn.Sequential(*self.layers)
+
+        if initializer == 'siren':
+            for m in self.network.modules():
+                if isinstance(m, nn.Linear):
+                    siren_uniform_(m.weight, mode='fan_in', c=c)
+
+
+    def forward(self, x, z):
+        modulation = self.mod_layer(z)
+        idx = 0  # Index to keep track of cumulative layer sizes for shift slicing
+
+        out = x
+        for i, layer in enumerate(self.layers):
+            if isinstance(layer, nn.Linear) and i != len(self.layers) - 1:
+                shift = modulation[..., idx:idx + layer.out_features]  # the ... indexiation is to allow for batching and vmap
+                out = layer(out)
+                out = out + shift
+                idx += layer.out_features
+            else:
+                out = layer(out)
+
+        return out

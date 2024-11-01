@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from utils import set_and_true
+from util.misc import set_and_true
 
 class AutoClip:
     def __init__(self, config):

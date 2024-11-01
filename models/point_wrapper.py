@@ -13,7 +13,7 @@ class PointWrapper:
     @classmethod
     def merge(cls, x1: Self, x2: Self):
         ''' Merges 2 PointWrapper to another PointWrapper '''
-        assert x1.bz == x2.bz, 'PointWrapper must have same batch_size'
+        assert x1.bz == x2.bz, 'PointWrapper must have same ginn_bsize'
 
         x3 = torch.cat([torch.zeros_like(x1.data), torch.zeros_like(x2.data)], dim=0)
         map = {}
@@ -119,6 +119,9 @@ class PointWrapper:
         pts_of_shape_i = self.data[self._map[shape_idx]]
         return pts_of_shape_i
 
+    def set_pts_of_shape(self, shape_idx, new_pts):
+        self.data[self._map[shape_idx]] = new_pts
+
     def select_w_mask(self, incl_mask):
         new_x = self.data[incl_mask]
         new_map = {}
@@ -132,6 +135,22 @@ class PointWrapper:
             new_map[i_shape] = torch.arange(n_new_pts, device=self.data.device) + i_prev
             i_prev += n_new_pts
         return PointWrapper(new_x, new_map)
+    
+    def _select_w_mask(self, incl_mask):
+        new_x = self.data[incl_mask]
+        new_map = {}
+        i_prev = 0
+        for i_shape in range(self.bz):
+            # get the indices that belong to this shape
+            idcs_i = self._map[i_shape]
+            # get the mask that belong to this shape and see how many entries are selected.
+            n_new_pts = incl_mask[idcs_i].sum()
+            # add the new indices
+            new_map[i_shape] = torch.arange(n_new_pts, device=self.data.device) + i_prev
+            i_prev += n_new_pts
+        self.data = new_x
+        self._map = new_map
+        self.bz = len(self._map.keys()) ## TODO: is this necessary?
 
     def z_in(self, z):
         '''
@@ -171,7 +190,7 @@ class PointWrapperVec:
     @classmethod
     def merge(cls, x1: Self, x2: Self):
         ''' Merges 2 PointWrapper to another PointWrapper '''
-        assert x1.bz == x2.bz, 'PointWrapper must have same batch_size'
+        assert x1.bz == x2.bz, 'PointWrapper must have same ginn_bsize'
         x3 = torch.cat([torch.zeros_like(x1.data), torch.zeros_like(x2.data)], dim=0)
         mask = torch.zeros((x1.bz, x1.k+x2.k), dtype=torch.bool)
         prev_idx = 0

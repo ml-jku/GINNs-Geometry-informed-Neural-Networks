@@ -1,0 +1,126 @@
+###################
+## Model
+###################
+wandb_experiment_name: 'simjeb_cond_wire'
+model: 'cond_wire'
+w0: 1.0
+w0_initial: 18
+wire_scale: 6
+
+nx: 3 # input is 3D 
+nz: 1 # dimension of the modulation vector
+layers: [128,128,128]  # 3x128 and 3x256 perform similarly (see 67hsix5l vs 2kml4jrp)
+reset_zlatents_every_n_epochs: 100000  # uncomment to set; not set means the latents are kept fix
+z_sample_interval: [0, 0.1]
+z_sample_method: 'equidistant'  # any of ['uniform', 'normal', 'equidistant']
+
+###################
+## Data
+###################
+data_bsize: -1  # -1 means full-batch GD
+simjeb_ids: [62, 148]  # 59, 62, 114, 148, 302; has to be [left_corner, right_corner] for the interpolation
+
+###################
+## GINN
+###################
+ginn_bsize: 1 # usually denoted as bz in the code; i.e. the number of ginn models to train in parallel
+train_plot_n_shapes: ${eval:${ginn_bsize}+${eval:len(${simjeb_ids})}} # must not be bigger than ginn_bsize
+plot_every_n_epochs: 100
+valid_every_n_epochs: 2000
+valid_plot_n_shapes: 1 # sampled using equidistant z
+
+###################
+## Loss-balancing
+###################
+
+## Data losses
+lambda_data: 0.0e+1
+lambda_lip: ${eval:1.0e-7 * 0}
+lambda_dirichlet: ${eval:1.0e1 * 0}
+dirichlet_use_surface_points: True
+
+## GINN losses
+objective: 'curv'
+lambda_if: 1
+lambda_env: 1
+lambda_obst: 0.0
+lambda_if_normal: 1.0
+lambda_eikonal: 1
+lambda_scc: 1
+lambda_curv: 5.0e-3
+lambda_div: 0.0e+0
+max_curv: 0 # 180 # 500
+max_div: 0
+
+
+###################
+## SCC algorithm
+###################
+iso_level: -0.0  # implicitly sets the thickness
+ph_1_hole_level: 0.06
+ph_loss_maxdim: 1
+ph_loss_target_betti: [1, 0, 0]
+scc_penalty_norm_eps: 1.0e-4
+scc_n_grid_points: 64
+ph_num_workers: ${ginn_bsize}
+n_points_find_cps: 4096
+
+###################
+## Surface points
+###################
+surf_pts_do_uniform_resampling: True
+surf_pts_warmup_n_epochs: 500
+surf_pts_recompute_every_n_epochs: 1
+surf_pts_nof_points: 8192 # 32768  ## nof points for initializing the flow to surface
+
+
+###################
+## DIVERSITY
+###################
+
+
+###################
+## Metrics computation
+###################
+
+
+
+###################
+## LOGGING
+###################
+
+
+## Specific plots
+plot_shape: True
+val_plot_shape: True
+plot_surface_points: True
+plot_ph_diagram: True
+
+
+###################
+## Problem
+###################
+problem: 'simjeb'
+## Number of points to sample
+n_points_domain: 2048  # used for eikonal loss
+n_points_envelope: 16384
+n_points_interfaces: 4096
+n_points_normals: 4096
+# n_points_obstacles: 128
+
+###################
+## Training
+###################
+max_epochs: 50000
+
+
+## Weight saving
+save_every_n_epochs: 10
+overwrite_existing_saved_model: True
+
+## Weight loading
+load_mos: False  # load model, optimizer, scheduler
+load_model: False
+load_optimizer: False
+load_scheduler: False
+model_load_wandb_id: 'ogttvs21'  # alternatively, search model_load_path via wandb

@@ -1,6 +1,13 @@
 wandb
 img
+media/images
+notebooks/media
+notebooks/important_models
 _scratch
+
+configs/start_queue
+configs/running
+configs/finished
 
 *.sh
 **/*.aux
@@ -26,3 +33,10 @@ __pycache__/*
 # ignore .DS_Store files
 **/.DS_Store
 
+notebooks/148.msh
+notebooks/demo.msh
+notebooks/demo.vtu
+notebooks/gridap_linear_elasticity.ipynb
+notebooks/gridap_test.ipynb
+notebooks/results.vtu
+notebooks/solid.json

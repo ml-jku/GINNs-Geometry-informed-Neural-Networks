@@ -157,21 +157,3 @@ class GeneralNetFFN(GeneralNet):
         return x
 
 
-class ConditionalFFN(GeneralNet):
-    """ Wrapper around FFN (Fourier Feature Network)[Tancik] """
-    def __init__(self, ks, act=tanh, N_ffeat=0, sigma=1, nx=2):
-        super(ConditionalFFN, self).__init__(ks=ks, act=act)
-        self.N_ffeat = N_ffeat
-        if self.N_ffeat:
-            self.B = torch.normal(0, sigma**2, size=[self.N_ffeat, nx])
-    def forward(self, x, z):
-        if self.N_ffeat:
-            x_B = 2*torch.pi*x@self.B.T
-            x_sin = torch.sin(x_B)
-            x_cos = torch.cos(x_B)
-            x = torch.hstack([x_sin, x_cos])
-        x = torch.hstack([x, z]) ## stack with latent code
-        x = self.fcs[0](x) # 0 -> 1
-        for i in range(1, self.D): # 1 --> D
-            x = self.fcs[i](self.act(x))
-        return x
