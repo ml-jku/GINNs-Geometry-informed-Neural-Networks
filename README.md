@@ -65,4 +65,4 @@ Install the necessary dependencies
 
 You can start training by specifying a config from the 'configs' folder.
 
-    python run.py --gpu_list 0 --yml obst2d_siren.yml
+    python run.py gpu_list=0 yml=simjeb_wire_singleshape
