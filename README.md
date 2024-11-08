@@ -54,6 +54,6 @@ Start the training by specifying a config from the `configs` folder.
 Plateau’s problem is to find the surface $S$ with the minimal area given a prescribed boundary $\Gamma$ (a closed curve in $X \in \mathbb{R}$).
 A minimal surface is known to have zero mean-curvature $\kappa_H$ everywhere.
 
-With [notebooks/min_surf.ipynb](notebooks/min_surf.ipynb) you can train a GINN to learn the minimal surface. It takes a few seconds to converge. This code does not use the more advanced adaptive augmented Lagrangian method for constrained optimization.
+With [notebooks/min_surf.ipynb](notebooks/minimal_surface.ipynb) you can train a GINN to learn the minimal surface. It takes a few seconds to converge. This code does not use the more advanced adaptive augmented Lagrangian method for constrained optimization.
 
 <img src="media/minsurf.png" width="300"/>
