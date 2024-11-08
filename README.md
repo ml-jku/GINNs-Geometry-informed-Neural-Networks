@@ -2,7 +2,7 @@
 
 ### [Project Page](https://arturs-berzins.github.io/GINN/) | [arXiv](https://arxiv.org/abs/2402.14009)
 
-<img src="media/diagonal.gif" width="800"/>
+<img src="media/diagonal_other_overlay.gif" width="800"/>
 
 This project accompanies the paper "Geometry-informed Neural Networks", which allows to train shape generative models without data.
 Instead, GINNs are trained to satisfy design requirements given as constraints and objectives.
