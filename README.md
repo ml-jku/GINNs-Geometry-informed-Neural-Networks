@@ -32,15 +32,15 @@ GINNs not only learn to generate multiple diverse solutions, but can also learn 
 ├── util/                           # Utilities used throughout the project
 ```
 
-## How to get started?
+## Get started
 
-Install the necessary dependencies
-
+Install the dependencies, ideally in a fresh environment
 ```pip install -r requirements.txt```
+
 
 ### Jet engine bracket
 
-The problem specification for the jet engine bracked draws inspiration from an engineering design competition hosted by General Electric and GrabCAD ([paper](https://arxiv.org/abs/2105.03534v1), [website](https://simjeb.github.io/)). The challenge was to design the lightest possible lifting bracket for a jet engine subject to both physical and geometrical constraints. Here, we focus only on the geometric constraints: the shape must fit in a provided design space and attach to six cylindrical interfaces. In addition, we require connectedness as a trivial requirement for structural integrity and a smooth surface.
+The problem described in Section 4.3. The problem specification draws inspiration from an engineering design competition hosted by General Electric and GrabCAD ([paper](https://arxiv.org/abs/2105.03534v1), [website](https://simjeb.github.io/)). The challenge was to design the lightest possible lifting bracket for a jet engine subject to both physical and geometrical constraints. Here, we focus only on the geometric constraints: the shape must fit in a provided design space and attach to six cylindrical interfaces. In addition, we require connectedness as a trivial requirement for structural integrity and a smooth surface.
 
 <img src="media/jeb_training.gif" width="600"/>
 

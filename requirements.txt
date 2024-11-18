@@ -1,0 +1,13 @@
+cripser==0.0.13
+torch==2.5.1
+torchvision==2.5.1
+torchaudio==0.20.1
+matplotlib==3.9.2
+scikit-image==0.24.0
+einops==0.8.0
+wandb==0.18.7
+kappaconfig==1.0.31
+tqdm==4.67.0
+k3d==2.16.1
+trimesh[easy]==4.5.2
+fast-simplification==0.1.9
