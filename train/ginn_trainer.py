@@ -1,22 +1,14 @@
-from math import e
 import time
-from tracemalloc import start
-from turtle import st
-from typing import final
-from attr import s
-from matplotlib.artist import kwdoc
-import numpy as np
 import torch
-from torch import vmap
-from torch.utils.data import DataLoader
-from tqdm import trange
 import logging
+from tqdm import trange
 
 import wandb
 from GINN.shape_boundary_helper import ShapeBoundaryHelper
 from GINN.data.simjeb_dataset import SimJebDataset
 from GINN.evaluation.jeb_meter import JebMeter
 from GINN.evaluation.simple_obst_meter import SimpleObstacleMeter
+
 from train.opt.opt_util import get_opt, opt_step
 from train.opt.adaptive_util import init_mu_dict, init_aug_lagr_lambas, init_nu_dict, lambda_balancing, scale_losses, adaptive_penalty_update
 from train.train_utils.loss_keys import LossKey, get_loss_key_list
