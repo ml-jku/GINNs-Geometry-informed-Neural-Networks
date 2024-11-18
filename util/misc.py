@@ -1,4 +1,3 @@
-from calendar import c
 import os
 import random
 
@@ -121,8 +120,6 @@ def get_model(config):
         model = ConditionalGeneralNet(ks=config['layers'], act=activation)
     elif model_str == 'cond_general_resnet':
         model = ConditionalGeneralResNet(ks=config['layers'], act=activation)
-    elif model_str == 'cond_ffn':
-        model = ConditionalFFN(layers=layers, nz=config['nz'], n_ffeat=config['n_ffeat'], sigma=config['ffn_sigma'])
     elif model_str == 'lip_ffn':
         model = LipschitzConditionalFFN(layers=layers, nz=config['nz'], n_ffeat=config['n_ffeat'], sigma=config['ffn_sigma'])
     elif model_str == 'general_net_posenc':
