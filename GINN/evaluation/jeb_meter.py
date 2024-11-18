@@ -64,7 +64,11 @@ class JebMeter:
         
         shape_boundary_helper = None
         if netp is not None:
+<<<<<<< HEAD
             shape_boundary_helper = ShapeBoundaryHelper(self.config, netp, mp_manager=DummyMPManager(), plot_helper=DummyPlotter(), x_interface=self.pts_at_if, device=self.config['device'])
+=======
+            shape_boundary_helper = ShapeBoundaryHelper(self.config, netp, mp_manager=DummyMPManager(), plotter=DummyPlotter(), x_interface=self.pts_at_if, device=self.config['device'])
+>>>>>>> 613f0e1 (add evaluation)
         
         metrics_dicts_list = []
         mesh_models = []
