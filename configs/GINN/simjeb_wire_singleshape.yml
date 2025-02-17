@@ -1,0 +1,232 @@
+###################
+## Model
+###################
+wandb_experiment_name: 'simjeb_cond_wire'
+
+# put all reused variables into vars
+vars:
+  nx: 3 # input is 3D
+  nz: 1 # dimension of the modulation vector
+  ginn_bsize: 1 # usually denoted as bz in the code; i.e. the number of ginn models to train in parallel
+  val_plot_grid: [1, 1] # [n_first_dims, shapes_per_dim]; sampled using equidistant z (if nz>2), otherwise see latent_sampler
+  problem_str: 'simjeb'
+  ginn_on: 1
+  n_points_surface: 100001 # 32768  ## nof points for initializing the flow to surface
+  nf_is_density: False
+  level_set: 0.0
+
+
+# useful global variables
+nx: ${vars.nx}
+nz: ${vars.nz}
+ginn_bsize: ${vars.ginn_bsize}
+level_set: ${vars.level_set}
+nf_is_density: ${vars.nf_is_density}
+
+
+model:
+  model_str: 'cond_wire'
+  nx: ${vars.nx}
+  nz: ${vars.nz}
+  return_density: ${vars.nf_is_density}
+  w0_initial: 18
+  wire_scale: 6
+  # layers: [64,64,64]  # 3x128 and 3x256 perform similarly (see 67hsix5l vs 2kml4jrp)
+  layers: [128,128,128]  # 3x128 and 3x256 perform similarly (see 67hsix5l vs 2kml4jrp)
+
+reset_zlatents_every_n_epochs: 1  # uncomment to set; not set means the latents are kept fix
+latent_sampling:
+  nz: ${vars.nz}
+  ginn_bsize: ${vars.ginn_bsize}
+  z_sample_method: 'equidistant'  # any of ['uniform', 'normal', 'equidistant']
+  val_plot_grid: ${vars.val_plot_grid}
+  z_sample_interval: [0,0.1]
+
+
+###################
+## Data
+###################
+data:
+  simjeb_ids: []  # 59, 62, 114, 148, 302; has to be [left_corner, right_corner] for the interpolation
+
+###################
+## GINN
+###################
+train_plot_max_n_shapes: 4
+plot_every_n_epochs: 50
+valid_every_n_epochs: 2000
+
+###################
+## Loss-balancing
+###################
+## global switch for GINN losses
+
+## GINN losses
+objective: 'curv'
+
+## Data losses
+
+lambda_data: 0.0e+1
+lambda_lip: ${eval:1.0e-7 * 0}
+lambda_dirichlet: ${eval:1.0e1 * 0}
+
+### local
+lambda_if: ${eval:${vars.ginn_on} * 1}
+lambda_env: ${eval:${vars.ginn_on} * 1}
+lambda_obst: ${eval:${vars.ginn_on} * 0.0}
+lambda_if_normal: ${eval:${vars.ginn_on} * 1.0}
+### global
+lambda_eikonal: ${eval:${vars.ginn_on} * 1.0}
+lambda_scc: ${eval:${vars.ginn_on} * 100}
+lambda_curv: 1 #5.0e-3
+lambda_div: 0.0e+0
+
+max_curv: 0 # 180 # 500
+max_div: -0.1
+
+# start epoch for losses; naming convention: start_{loss_name}
+start_curv: 500
+start_div: 500
+
+# scale_curv: 5.0e-4
+scale_curv: 1.0e-3
+# scale_curv: 5.0e-5
+scale_div: 1.0
+scale_chamfer_div: 1
+scale_vol: 1
+scale_comp: 1
+scale_eikonal: 0.1
+
+dirichlet_use_surface_points: True
+
+
+###################
+## Curvature
+###################
+# exclude_surface_points_close_to_interface_cutoff: 0.025  # 0.0 means no interface points are excluded
+exclude_surface_points_close_to_interface_cutoff: 0.04  # 0.0 means no interface points are excluded
+
+
+
+###################
+## SCC algorithm
+###################
+ph:
+  nx: ${vars.nx}
+  problem_str: ${vars.problem_str}
+  ginn_bsize: ${vars.ginn_bsize}
+  is_density: ${vars.nf_is_density}
+  iso_level: -0.0  # implicitly sets the thickness
+  ph_1_hole_level: 0.06
+  ph_loss_maxdim: 1
+  ph_loss_target_betti: [1, 0, 0]
+  scc_penalty_norm_eps: 1.0e-4
+  scc_n_grid_points: 64
+  evaluate_ph_grid_per_shape: True  # Set to True to save memory, but it's slower
+  
+
+###################
+## Surface points
+###################
+surface:
+  nx: ${vars.nx}
+  n_points_surface: ${vars.n_points_surface}
+  level_set: ${vars.level_set}
+  do_numerical_surface_points: False
+  bin_search_steps: 10
+  equidistant_init_grid: True
+  do_uniform_resampling: True
+  recompute_every_n_epochs: 1
+
+###################
+## DIVERSITY
+###################
+
+
+###################
+## Metrics computation
+###################
+
+
+
+###################
+## LOGGING
+###################
+log_level: 'INFO'
+
+## Multi-processing
+num_workers: ${eval:min(${vars.ginn_bsize},8)}  # 0 means no multi-processing
+
+## Plotting
+plot:
+  val_plot_grid: ${vars.val_plot_grid}
+  problem_str: ${vars.problem_str}
+  fig_size: [12, 7]
+  level_set: ${vars.level_set}
+  show_colorbar: True
+
+meshing:
+  level_set: ${vars.level_set}
+  nf_is_density: ${vars.nf_is_density}
+  mc_resolution: 128
+  mesh_reduction: 0.9  # 0.9 means 10% of the original resolution; 0.0 means no change
+
+
+## Specific plots
+plot_shape: True
+val_plot_shape: True
+plot_surface_points: True
+plot_ph_diagram: True
+plot_surface_pts_every_n_epochs: 100
+
+## Timer
+timer:
+  print: False
+  accumulate: True ## record and print the accumulated timings at the end
+
+###################
+## Problem
+###################
+problem:
+  problem_str: ${vars.problem_str}
+
+problem_sampling:
+  ## Number of points to sample
+  nx: ${vars.nx}
+  n_points_domain: 2048  # used for eikonal loss
+  n_points_envelope: 16384
+  n_points_interfaces: 4096
+  n_points_normals: 4096
+  n_points_surface: ${vars.n_points_surface}
+
+###################
+## Training
+###################
+## Outer optimization loop
+max_epochs: 5000
+lr: 0.001
+## optimizer
+opt: adam  # adam, lbfgs, adam_lbfgs, adam_nncg, adam_lbfgs_nncg
+## scheduler
+use_scheduler: False
+scheduler_gamma: 0.5
+decay_steps: 5000
+
+grad_clipping:
+  grad_clipping_on: True
+  grad_clip: 0.5
+  auto_clip_on: True
+
+## Weight saving
+# model_save_path: '_saved_models'
+model_save_path: 'path/to/dir'
+save_every_n_epochs: 10
+overwrite_existing_saved_model: True
+save_optimizer: True
+
+## Weight loading
+load_mos: False  # load model, optimizer, scheduler
+load_model: False
+load_optimizer: False
+load_scheduler: False
+model_load_wandb_id: 'mb8z12t1'  # alternatively, search model_load_path via wandb

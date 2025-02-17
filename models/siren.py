@@ -66,8 +66,8 @@ class Sine(nn.Module):
 class SIREN(nn.Module):
     def __init__(self, layers: List[int], in_features: int,
                  out_features: int,
+                 w0_initial: float, # = 30.0,
                  w0: float = 1.0,
-                 w0_initial: float = 30.0,
                  bias: bool = True,
                  initializer: str = 'siren',
                  c: float = 6):
@@ -103,18 +103,23 @@ class SIREN(nn.Module):
                  Functions](https://arxiv.org/abs/2006.09661)
         """
         super(SIREN, self).__init__()
+        self.layers = layers
+        self.w0 = w0
+        self.w0_initial = w0_initial
+        
+        
         self._check_params(layers)
-        self.layers = [nn.Linear(in_features, layers[0], bias=bias), Sine(
+        self.nn_layers = [nn.Linear(in_features, layers[0], bias=bias), Sine(
             w0=w0_initial)]
 
         for index in range(len(layers) - 1):
-            self.layers.extend([
+            self.nn_layers.extend([
                 nn.Linear(layers[index], layers[index + 1], bias=bias),
                 Sine(w0=w0)
             ])
 
-        self.layers.append(nn.Linear(layers[-1], out_features, bias=bias))
-        self.network = nn.Sequential(*self.layers)
+        self.nn_layers.append(nn.Linear(layers[-1], out_features, bias=bias))
+        self.network = nn.Sequential(*self.nn_layers)
 
         if initializer is not None and initializer == 'siren':
             for m in self.network.modules():
@@ -133,11 +138,10 @@ class SIREN(nn.Module):
 class ConditionalSIREN(nn.Module):
     def __init__(self, 
                  layers: List[int],
+                 return_density,
+                 w0_initial: float, # = 30.0,
                  w0: float = 1.0,
-                 w0_initial: float = 30.0,
-                 bias: bool = True,
-                 initializer: str = 'siren',
-                 c: float = 6):
+                 **kwargs):
         """
         SIREN model from the paper [Implicit Neural Representations with
         Periodic Activation Functions](https://arxiv.org/abs/2006.09661).
@@ -167,24 +171,40 @@ class ConditionalSIREN(nn.Module):
                  Functions](https://arxiv.org/abs/2006.09661)
         """
         super(ConditionalSIREN, self).__init__()
+        
+        self.layers = layers
+        self.return_density = return_density
+        self.w0_initial = w0_initial
+        self.w0 = w0
+        
+        bias = True
+        initializer = 'siren'
+        c = 6
+        
         self._check_params(layers)
-        self.layers = [nn.Linear(layers[0], layers[1], bias=bias), Sine(
+        self.nn_layers = [nn.Linear(layers[0], layers[1], bias=bias), Sine(
             w0=w0_initial)]
 
         for index in range(1, len(layers) - 2):
-            self.layers.extend([
+            self.nn_layers.extend([
                 nn.Linear(layers[index], layers[index + 1], bias=bias),
                 Sine(w0=w0)
             ])
 
 
-        self.layers.append(nn.Linear(layers[-2], layers[-1], bias=bias))
-        self.network = nn.Sequential(*self.layers)
+        self.nn_layers.append(nn.Linear(layers[-2], layers[-1], bias=bias))
+        
+        if return_density:
+            self.nn_layers.append(nn.Sigmoid())
+
+        self.network = nn.Sequential(*self.nn_layers)
 
         if initializer is not None and initializer == 'siren':
             for m in self.network.modules():
                 if isinstance(m, nn.Linear):
                     siren_uniform_(m.weight, mode='fan_in', c=c)
+        
+        self.network
 
     @staticmethod
     def _check_params(layers):
@@ -266,3 +286,4 @@ class LatentModulatedSiren(nn.Module):
                 out = layer(out)
 
         return out
+    

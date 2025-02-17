@@ -1,20 +1,62 @@
+vars:
+  simjeb_root_dir: 'GINN/simJEB/data'
+
+
 ###################
 ## Model
 ###################
-ny: 1 # output is a scalar
+model: 
+  ny: 1 # output is a scalar
+  w0: 1.0 # for siren
+  # has to be used with cond_wire_density
+  use_density: False  # instead of SDF
+  density_iso_level: 0.05
+  group_size_fwd_no_grad: ${eval:2*1024*1024}
+  
 
+# user shall take conscious decision for sample_interval
+# latent_sampling:
+#   z_sample_interval: [0,1]
+
+field_losses: ['comp', 'vol', 'chamfer_div', 'wasserstein_div']
+lambda_rotsym: 0
+lambda_comp: 0
+lambda_vol: 0
+lambda_chamfer_div: 0
 
 ###################
 ## Data
 ###################
-data_dir: 'path/to/sdf_samples'
+n_points_data: -1
+data: 
+  data_dir: '/system/user/publicdata/simjeb_preprocessed/occ_sds'
+
+
+
+###################
+## FEM
+###################
+FEM:
+  youngs_modulus: 100
+  poisson_ratio: 0.25
+  traction_bs_F: [0, -1]
+  traction_bs_x: -1 
+  traction_bs_y1: 0.4
+  traction_bs_y2: 0.6
+
+###################
+## Adaptive penalty
+###################
+adaptive_penalty:
+  gamma: 0.01
+  epsilon: 1.0e-8
+  alpha: 0.9
 
 
 ###################
 ## GINN
 ###################
-flatten_plots: False  # flatten the plots into a row
-
+train_plot_max_n_shapes: 16
 
 ###################
 ## Loss-balancing
@@ -25,7 +67,6 @@ weight_rescale_on: False
 weight_rescale_interval: 100
 weight_rescale_alpha: 0.9
 use_augmented_lagrangian: True
-adaptive_penalty_updates: True
 
 ###################
 ## Curvature
@@ -34,76 +75,87 @@ adaptive_penalty_updates: True
 curvature_expression: '4*H**2 - 2*K'  # E_strain
 strain_curvature_clip_max: 1.0e+6
 curvature_use_gradnorm_weights: False
-
+curvature_pts_source: surface # domain, surface
 
 ###################
 ## SCC algorithm
 ###################
-ph_loss_sub0_points: False
-ph_loss_super0_points: False
-
+ph:
+  ph_loss_sub0_points: False
+  ph_loss_super0_points: False
+  ph_max_num_workers: 16
+  simjeb_root_dir: ${vars.simjeb_root_dir}
 
 ###################
 ## Surface points
 ###################
-surf_pts_lr: 0.01 ## learning rate for non-Newton optimizer
-surf_pts_n_iter: 10 # iterations of surface flow
-surf_pts_prec_eps: 1.0e-3  ## precision threshold for early stopping surface flow and filtering the points 
-surf_pts_converged_interval: 1 ## how often to check the convergence
-surf_pts_use_newton: True ## whether to use Newton iteration or Adam
-surf_pts_newton_clip: 0.15 ## magnitude for clipping the Newton update
-surf_pts_inflate_bounds_amount: 0.05 ## inflate the (otherwise tight) bounding box by this fraction
-surf_pts_uniform_n_iter: 10 ## nof iterations for repelling the points
-surf_pts_uniform_nof_neighbours: 16 ## nof neighbors for knn
-surf_pts_uniform_stepsize: 0.75 ## step size for the repelling update
-surf_pts_uniform_n_iter_reproj: 5 ## nof Newton-iterations for reprojecting the points
-surf_pts_uniform_prec_eps: 1.0e-3 ## precision for reprojection (similar to above)
-surf_pts_uniform_min_count: 1000 ## minimum number of points to redistribute. Less than this is meaningless
-surf_pts_surpress_tqdm: True
-surf_pts_uniform_reproject_surpress_tqdm: True
+surface:
+  do_numerical_surface_points: True  # else flow-based
+  # numerical hps
+  bin_search_steps: 10
+
+  # for flow-based surface points
+  surf_pts_do_uniform_resampling: True
+  surf_pts_lr: 0.01 ## learning rate for non-Newton optimizer
+  surf_pts_n_iter: 10 # iterations of surface flow
+  surf_pts_prec_eps: 1.0e-3  ## precision threshold for early stopping surface flow and filtering the points 
+  surf_pts_converged_interval: 1 ## how often to check the convergence
+  surf_pts_use_newton: True ## whether to use Newton iteration or Adam
+  surf_pts_newton_clip: 0.15 ## magnitude for clipping the Newton update
+  surf_pts_inflate_bounds_amount: 0.05 ## inflate the (otherwise tight) bounding box by this fraction
+  surf_pts_uniform_n_iter: 10 ## nof iterations for repelling the points
+  surf_pts_uniform_nof_neighbours: 16 ## nof neighbors for knn
+  surf_pts_uniform_stepsize: 0.75 ## step size for the repelling update
+  surf_pts_uniform_n_iter_reproj: 5 ## nof Newton-iterations for reprojecting the points
+  surf_pts_uniform_prec_eps: 1.0e-3 ## precision for reprojection (similar to above)
+  surf_pts_uniform_min_count: 1000 ## minimum number of points to redistribute. Less than this is meaningless
+  surf_pts_surpress_tqdm: True
+  surf_pts_uniform_reproject_surpress_tqdm: True
 
 
 
 ###################
 ## DIVERSITY
 ###################
-div_norm_order: 2
-div_neighbor_agg_fn: 'min'  # mean, sum, min
-exclude_surface_points_close_to_interface: True
-exclude_surface_points_close_to_interface_cutoff: 0.025
+diversity_pts_source: surface # domain, surface
+div_norm_order: 1
+div_neighbor_agg_fn: 'min'  # mean, sum, min, leinster
+exclude_surface_points_close_to_interface_cutoff: 0.025  # 0.0 means no interface points are excluded
 
 ###################
 ## Metrics computation
 ###################
-shape_metrics_every_n_epochs: 1000000  # off by default
-val_shape_metrics_every_n_epochs: 1000000  # off by default
-metrics_diversity_inner_agg_fns: ['sum'] #, 'min', 'mean']
-metrics_diversity_outer_agg_fns: ['sum'] #, 'mean']
-metrics_diversity_ps: [0.5] #, 1, 2]
-metrics_chamfer_orders: [2] # 1,]
-metrics_diversity_n_samples: 1000
-chamfer_metrics_vectorize: True
+metrics:
+  shape_metrics_every_n_epochs: 1000000  # off by default
+  val_shape_metrics_every_n_epochs: 1000000  # off by default
+  metrics_diversity_inner_agg_fns: ['sum'] #, 'min', 'mean']
+  metrics_diversity_outer_agg_fns: ['sum'] #, 'mean']
+  metrics_diversity_ps: [0.5] #, 1, 2]
+  metrics_chamfer_orders: [2] # 1,]
+  metrics_diversity_n_samples: 1000
+  chamfer_metrics_vectorize: True
 
 ###################
 ## LOGGING
 ###################
+log_level: 'INFO'
 wandb_entity_name: 'abra'
 wandb_project_name: "topginn"
-fig_path: 'img/simjeb/lip_siren' ## must be set if fig_show True
-fig_size: [12, 7]
-fig_show: False
-fig_save: False
-fig_wandb: True
-force_saving_shape: False ## TODO
-show_colorbar: True
+plot:
+  fig_size: [12, 7]
+  fig_wandb: True
+  show_colorbar: True
+  plot_2d_resolution: 100 # means 100x100
+  level_set: 0
 
 ## Meshing
-mc_chunks: 1
-mesh_reduction: 0.9  # 0.9 means 10% of the original resolution
+meshing:
+  mc_resolution: 128
+  mc_chunks: 1
+  mesh_reduction: 0.9  # 0.9 means 10% of the original resolution
 
 ## Multi-processing
-num_workers: 8  # 0 means no multi-processing
-mc_resolution: 128
+num_workers: 4  # 0 means no multi-processing
 
 ## Timer
 timer_print: False
@@ -113,10 +165,9 @@ timer_accumulate: True ## record and print the accumulated timings at the end
 ###################
 ## Problem
 ###################
-level_set: 0
-simjeb_root_dir: 'GINN/simJEB/data'
-envelope_sample_from: 'exterior'
-
+problem: 
+  rotation_n_cycles: 0
+  simjeb_root_dir: ${vars.simjeb_root_dir}
 
 ###################
 ## Training
@@ -130,22 +181,27 @@ opt: adam  # adam, lbfgs, adam_lbfgs, adam_nncg, adam_lbfgs_nncg
 use_scheduler: False
 scheduler_gamma: 0.5
 decay_steps: 5000
-## gradient clipping
-grad_clipping_on: True
-grad_clip: 0.5
-## autoclip: https://arxiv.org/abs/2007.14469
-auto_clip_on: True
-auto_clip_percentile: 0.8
-auto_clip_hist_len: 50
-auto_clip_min_len: 50
+
+
+grad_clipping:
+  grad_clipping_on: True
+  grad_clip: 0.5
+  ## autoclip: https://arxiv.org/abs/2007.14469
+  auto_clip_on: True
+  auto_clip_percentile: 0.8
+  auto_clip_hist_len: 50
+  auto_clip_min_len: 50
 
 ## Weight saving
 # model_save_path: '_saved_models'
-model_save_path: 'saved_models'
-save_optimizer: True
+model_save_path: 'TODO'
+overwrite_existing_saved_model: True
+save_optimizer: False
 
 ## Weight loading
 load_mos: False  # load model, optimizer, scheduler
 load_model: False
 load_optimizer: False
 load_scheduler: False
+
+gpu_list: []

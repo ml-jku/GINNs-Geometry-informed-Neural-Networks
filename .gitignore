@@ -3,11 +3,18 @@ img
 media/images
 notebooks/media
 notebooks/important_models
+notebooks/gridap_tests
 _scratch
+
+external/deflatedbarrier_repo/examples
+gs_output
 
 configs/start_queue
 configs/running
 configs/finished
+
+# Ignore files of deflated-barrier
+output
 
 *.sh
 **/*.aux
@@ -23,6 +30,11 @@ configs/finished
 **/.ipynb_checkpoints
 **/.idea
 **/.vscode
+
+*.h5
+*.hdf5
+*.jpg
+*.xdmf
 # ignore __pycache__ folders
 **/__pycache__
 # # ignore __pycache__ folders in subfolders

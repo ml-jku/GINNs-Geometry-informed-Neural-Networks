@@ -1,0 +1,16 @@
+image: quay.io/fenicsproject/dev
+
+pipelines:
+  default:
+    - step:
+        script:
+          - pip3 install --no-binary ":all:" --no-cache-dir h5py
+          - export HOME=/home/fenics
+          - export FENICS_PREFIX=$HOME/local
+          - export FENICS_PYTHON_MAJOR_VERSION=3
+          - export FENICS_PYTHON_MINOR_VERSION=5
+          - source /home/fenics/fenics.env.conf
+          - cd $BITBUCKET_CLONE_DIR
+          - pip3 install --no-cache-dir .
+          - cd examples/double-pipe
+          - python3 test.py

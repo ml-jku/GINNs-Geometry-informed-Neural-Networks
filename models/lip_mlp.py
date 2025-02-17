@@ -71,6 +71,7 @@ class ConditionalLipschitzLinear(torch.nn.Module):
         scale = torch.clamp(scale, max=1.0)
         # here we have to rescale only the weights corresponding to the conditional input
         # weight = self.weight * scale.unsqueeze(1)
+        # TODO: can probably speed this up by using torch.index_select or its own weight matrix for the conditional input
         weight = self.weight.clone()
         weight[:, self.cond_idcs] = weight[:, self.cond_idcs] * scale.unsqueeze(1)
         return torch.nn.functional.linear(input, weight, self.bias)

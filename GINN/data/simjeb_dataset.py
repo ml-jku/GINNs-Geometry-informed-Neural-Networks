@@ -5,33 +5,27 @@ import torch
 from torch.utils.data import Dataset
 
 class SimJebDataset(Dataset):
-    def __init__(self, config, transform=None):
-        self.config = config
-        self.device = config['device']
-        self.data_dir = config['data_dir']
-        self.pt_coords, self.sdf_vals, self.idcs = self._load_data(config)
+    def __init__(self, data_dir, simjeb_ids, seed, transform=None, **kwargs):
+        self.device = torch.get_default_device()
+        self.data_dir = data_dir
+        self.pt_coords, self.sdf_vals, self.idcs = self._load_data(simjeb_ids)
         self.pt_coords, self.sdf_vals, self.idcs = torch.from_numpy(self.pt_coords).to(self.device), torch.from_numpy(self.sdf_vals).to(self.device), torch.from_numpy(self.idcs).to(self.device)
         print(f'n_data_points: {len(self.pt_coords)}')
         
-    def _load_data(self, config):
+    def _load_data(self, simjeb_ids):
         pts = []
         y = []
         idcs = []
-        for i, simjeb_id in enumerate(config['simjeb_ids']):
-            # load from path or cleaned path if exists
-            clean_pts_file_path = join(self.data_dir, f"{simjeb_id}.obj_525000_points_cleaned.npy")
-            if os.path.exists(clean_pts_file_path):
-                pts_file_path = clean_pts_file_path
-                sdf_val_path = join(self.data_dir, f"{simjeb_id}.obj_525000_sdf_cleaned.npy")
-            else:
-                pts_file_path = join(self.data_dir, f"{simjeb_id}.obj_525000_points.npy")
-                sdf_val_path = join(self.data_dir, f"{simjeb_id}.obj_525000_sdf.npy")    
-            pts_npy = np.load(pts_file_path)
-            sdf_vals_npy = np.load(sdf_val_path)
+        for i, simjeb_id in enumerate(simjeb_ids):
             
-            pts.append(pts_npy)
-            y.append(sdf_vals_npy)
-            idcs.append(np.ones(pts_npy.shape[0], dtype=np.int64) * i)
+            pts_near_surf = np.load(join(self.data_dir, str(simjeb_id), f"points_near_surface.npz"))['data']
+            pts_uniform = np.load(join(self.data_dir, str(simjeb_id), f"points_uniform.npz"))['data']
+            sdf_vals_np = np.load(join(self.data_dir, str(simjeb_id), f"sdf_near.npz"))['data']
+            sdf_uniform_np = np.load(join(self.data_dir, str(simjeb_id), f"sdf_uniform.npz"))['data']
+            
+            pts.extend([pts_near_surf, pts_uniform])
+            y.extend([sdf_vals_np, sdf_uniform_np])
+            idcs.append(np.ones(pts_near_surf.shape[0] + pts_uniform.shape[0], dtype=np.int64) * i)
         
         pts = np.concatenate(pts, axis=0)
         y = np.concatenate(y, axis=0)

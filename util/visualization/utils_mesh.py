@@ -40,7 +40,7 @@ def get_2d_contour_for_latent(f, params, z, bounds, device='cpu'):
     
     # evaluate at the meshgrid
     X0, X1, xs = get_meshgrid_in_domain(bounds)
-    xs = torch.tensor(xs, dtype=torch.float32, device=device)
+    xs = torch.tensor(xs, device=device)
     Y = f_fixed_z(xs).detach().cpu().numpy().reshape(X0.shape)
     
     # print(f'X0: {X0.shape}, {X0}')
@@ -122,6 +122,7 @@ def get_mesh(model,
         level=0, 
         return_normals=0,
         watertight=False,
+        nf_is_density=False,
         ):
     '''
     For marchihng cubes split the evaluation of the grid into chunks since for high resolutions memory can be limiting.
@@ -134,18 +135,31 @@ def get_mesh(model,
         x0, y0, z0 = bbox_min
         x1, y1, z1 = bbox_max
         dx, dy, dz = (x1-x0)/chunks, (y1-y0)/chunks, (z1-z0)/chunks
+        
+        max_dim_range = max(bbox_max-bbox_min)
+        num_el_x = int((bbox_max[0] - bbox_min[0]) / max_dim_range * N)
+        num_el_y = int((bbox_max[1] - bbox_min[1]) / max_dim_range * N)
+        num_el_z = int((bbox_max[2] - bbox_min[2]) / max_dim_range * N)
+        
         nV = 0 # nof vertices
         for i in range(chunks):
             for j in range(chunks):
                 for k in range(chunks):
                     xmin, ymin, zmin = x0+dx*i, y0+dy*j, z0+dz*k
                     xmax, ymax, zmax = xmin+dx, ymin+dy, zmin+dz
-                    lsx = torch.linspace(xmin, xmax, N//chunks, device=device)
-                    lsy = torch.linspace(ymin, ymax, N//chunks, device=device)
-                    lsz = torch.linspace(zmin, zmax, N//chunks, device=device)
+                    lsx = torch.linspace(xmin, xmax, num_el_x//chunks, device=device)
+                    lsy = torch.linspace(ymin, ymax, num_el_y//chunks, device=device)
+                    lsz = torch.linspace(zmin, zmax, num_el_z//chunks, device=device)
                     X, Y, Z = torch.meshgrid(lsx, lsy, lsz, indexing='ij')
                     pts = torch.vstack([X.ravel(), Y.ravel(), Z.ravel()]).T
                     vs = model(pts.to(device=device))
+                    # have to convert density to pseudo-SDF
+                    if nf_is_density:
+                        # e.g. if level_set = 0.7, then inside are all values where 
+                        # density > 0.7 , or equivalently when
+                        # 0 > 0.7 - density, 
+                        vs = level - vs
+                        level = 0
                     V = vs.reshape(X.shape).cpu()
                     if watertight:
                         if chunks!=1:
@@ -179,7 +193,7 @@ def get_mesh(model,
     if return_normals: return verts, faces, normals
     return verts, faces
 
-def get_watertight_mesh_for_latent(f, params, z, bounds, mc_resolution=256, device='cpu', chunks=1, surpress_watertight=False):
+def get_watertight_mesh_for_latent(f, params, z, bounds, mc_resolution=256, device='cpu', chunks=1, surpress_watertight=False, level=0, nf_is_density=False):
     def f_fixed_z(x):
         """A wrapper for calling the model with a single fixed latent code"""
         with torch.no_grad():
@@ -192,7 +206,9 @@ def get_watertight_mesh_for_latent(f, params, z, bounds, mc_resolution=256, devi
                                 bbox_max=bounds[:,1],
                                 chunks=chunks,
                                 return_normals=0,
-                                watertight=True)
+                                watertight=True,
+                                level=level,
+                                nf_is_density=nf_is_density)
     # print(f"Found a mesh with {len(verts_)} vertices and {len(faces_)} faces")
     
     if surpress_watertight: return verts_, faces_

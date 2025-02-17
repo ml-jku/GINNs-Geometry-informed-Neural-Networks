@@ -7,7 +7,7 @@ import shapely
 from sympy import div
 
 from GINN.problems.problem_base import ProblemBase
-from GINN.evaluation.metrics_utils import chamfer_divergence, chamfer_diversity_metric_vec, diversity_metric
+from GINN.evaluation.metrics_utils import two_sided_chamfer_divergence, chamfer_diversity_metric_vec, diversity_metric
 from models.net_w_partials import NetWithPartials
 from util.visualization.utils_mesh import get_2d_contour_for_latent, sample_pts_interior_and_exterior
 from shapely.geometry import MultiPolygon
@@ -15,28 +15,40 @@ from shapely.geometry import MultiPolygon
 class SimpleObstacleMeter:
     
     @staticmethod
-    def create_from_problem_sampler(config, ps: ProblemBase):
-        return SimpleObstacleMeter(config,
-            bounds=config['bounds'].cpu().numpy(),
-            envelope=ps.envelope,
-            obst_center=ps.obst_1_center,
-            obst_radius=ps.obst_1_radius,
-            interface_left=ps.interface_left,
-            interface_right=ps.interface_right)
+    def create_from_problem_sampler(ps: ProblemBase, **kwargs):
+        return SimpleObstacleMeter(bounds=ps.bounds.cpu().numpy(),
+                                   envelope=ps.envelope,
+                                   obst_center=ps.obst_1_center,
+                                   obst_radius=ps.obst_1_radius,
+                                   interface_left=ps.interface_left,
+                                   interface_right=ps.interface_right, 
+                                   **kwargs)
     
     def __init__(self,
-                 config, 
                  bounds =  np.array([[-1, 1],[-0.5, 0.5]]),
                  envelope = np.array([[-.9, 0.9], [-0.4, 0.4]]),
                  obst_center = [0, 0],
                  obst_radius = 0.1,
                  interface_left = np.array([[-0.9, -0.4], [-0.9, 0.4]]),
                  interface_right = np.array([[0.9, -0.4], [0.9, 0.4]]),
-                 debug_intermediate_shapes=False
-                 ):
-        self.config = config
-        self.debug_intermediate_shapes = debug_intermediate_shapes
+                 debug_intermediate_shapes=False,
+                 metrics_diversity_inner_agg_fns=['sum'],
+                 metrics_diversity_outer_agg_fns=['sum'],
+                 metrics_diversity_ps=[0.5],
+                 metrics_chamfer_orders=[2],
+                 metrics_diversity_n_samples=1000,
+                 chamfer_metrics_vectorize=True,
+                 **kwargs):
+        
         self.bounds = bounds
+        self.debug_intermediate_shapes = debug_intermediate_shapes
+        self.metrics_diversity_inner_agg_fns = metrics_diversity_inner_agg_fns
+        self.metrics_diversity_outer_agg_fns = metrics_diversity_outer_agg_fns
+        self.metrics_diversity_ps = metrics_diversity_ps
+        self.metrics_chamfer_orders = metrics_chamfer_orders
+        self.metrics_diversity_n_samples = metrics_diversity_n_samples
+        self.chamfer_metrics_vectorize = chamfer_metrics_vectorize
+        
         self.logger = logging.getLogger('SimpleObstacleMeter')
         self.contour_bounds = shapely.geometry.box(*bounds.T.flatten())
         self.obstacle = shapely.geometry.Point(obst_center).buffer(obst_radius)
@@ -83,12 +95,12 @@ class SimpleObstacleMeter:
         if len(contour_models) > 1:
             # start_t = time.time()
             avg_metrics.update(self.diversity_chamfer(contour_models, 
-                                                div_inner_agg_fns=self.config['metrics_diversity_inner_agg_fns'],
-                                                div_outer_agg_fns=self.config['metrics_diversity_outer_agg_fns'],
-                                                div_ps=self.config['metrics_diversity_ps'],
-                                                chamfer_norm_orders=self.config['metrics_chamfer_orders'],
-                                                n_samples=self.config['metrics_diversity_n_samples'],
-                                                vectorize=self.config['chamfer_metrics_vectorize']))
+                                                div_inner_agg_fns=self.metrics_diversity_inner_agg_fns,
+                                                div_outer_agg_fns=self.metrics_diversity_outer_agg_fns,
+                                                div_ps=self.metrics_diversity_ps,
+                                                chamfer_norm_orders=self.metrics_chamfer_orders,
+                                                n_samples=self.metrics_diversity_n_samples,
+                                                vectorize=self.chamfer_metrics_vectorize))
             # print(f'needed {time.time() - start_t:0.2f} seconds for diversity')
             # print(f'avg_metrics: {avg_metrics}')
         
@@ -293,7 +305,7 @@ class SimpleObstacleMeter:
                             diversity = chamfer_diversity_metric_vec(pts_mat, p=div_p, row_agg_fn=div_inner_agg_fn, col_agg_fn=div_outer_agg_fn, norm_order=dist_norm_order)
                         else:
                             diversity = diversity_metric(sampled_points, 
-                                                        lambda x, y: chamfer_divergence(x, y, dist_norm_order=dist_norm_order),
+                                                        lambda x, y: two_sided_chamfer_divergence(x, y, dist_norm_order=dist_norm_order),
                                                         div_p, inner_agg_fn=div_inner_agg_fn, outer_agg_fn=div_outer_agg_fn)
                         res_dict[f'diversity_chamfer-order_{dist_norm_order}-inner_agg_{div_inner_agg_fn}-outer_agg_{div_outer_agg_fn}-p_{div_p}'] = diversity
         

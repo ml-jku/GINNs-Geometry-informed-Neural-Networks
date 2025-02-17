@@ -1,3 +1,4 @@
+import logging
 import os
 from turtle import circle
 import einops
@@ -6,7 +7,8 @@ import numpy as np
 import trimesh
 import fast_simplification
 
-from GINN.problems.constraints import BoundingBox2DConstraint, CircleObstacle2D, CompositeInterface2D, Envelope2D, LineInterface2D, CompositeConstraint, SampleConstraint, SampleConstraintWithNormals, SampleEnvelope
+from GINN.problems.constraints import BoundingBox2DConstraint, DiskConstraint, CompositeInterface, RectangleEnvelope, LineInterface2D, CompositeConstraint, SampleConstraint, SampleConstraintWithNormals, SampleEnvelope
+from models.net_w_partials import NetWithPartials
 from util.model_utils import tensor_product_xz
 from models.point_wrapper import PointWrapper
 from util.visualization.utils_mesh import get_watertight_mesh_for_latent
@@ -18,16 +20,19 @@ def t_(x):
 
 class ProblemBase():
     
-    def __init__(self, config) -> None:
-        self.config = config
-        
-    
+    def __init__(self, nx) -> None:
+        self.logger = logging.getLogger('ProblemBase')
+        self.nx = nx
+
     def sample_from_envelope(self):
-        pts_per_constraint = self.config['n_points_envelope'] // len(self._envelope_constr)
+        '''
+        Sample points outside the envelope
+        '''
+        pts_per_constraint = self.n_points_envelope // len(self._envelope_constr)
         return torch.cat([c.get_sampled_points(pts_per_constraint) for c in self._envelope_constr], dim=0)
     
     def sample_from_interface(self):
-        pts_per_constraint = self.config['n_points_interfaces'] // len(self._interface_constraints)
+        pts_per_constraint = self.n_points_interfaces // len(self._interface_constraints)
         pts = []
         normals = []
         for c in self._interface_constraints:
@@ -37,17 +42,29 @@ class ProblemBase():
         return torch.cat(pts, dim=0), torch.cat(normals, dim=0)
     
     def sample_from_obstacles(self):
-        pts_per_constraint = self.config['n_points_obstacles'] // len(self._obstacle_constraints)
+        pts_per_constraint = self.n_points_obstacles // len(self._obstacle_constraints)
         return torch.vstack([c.get_sampled_points(pts_per_constraint) for c in self._obstacle_constraints])
     
-    def sample_from_domain(self):
-        return self._domain.get_sampled_points(self.config['n_points_domain'])
-        
+    def sample_from_inside_envelope(self):
+        return self._inside_envelope.get_sampled_points(self.n_points_domain)
     
-    def get_mesh_or_contour(self, f, params, z_latents):
+    def sample_from_domain(self):
+        return self._domain.get_sampled_points(self.n_points_domain)
+    
+    def sample_rotation_symmetric(self):
+        return self.rotation_symmetric_constraint.get_sampled_points(self.n_points_rotation_symmetric)
+    
+    def get_mesh_or_contour(self, 
+                            f, 
+                            params, 
+                            z_latents,
+                            mc_resolution,
+                            mc_chunks,
+                            mesh_reduction,
+                            **kwargs):
+        '''For computing metrics, we need to get the mesh or contour of the shapes.'''
         try:
-            
-            if self.config['nx']==2:
+            if self.nx==2:
                 ## get contour on the marching squares grid for 2d obstacle
                 contour_list = []
                 with torch.no_grad():   
@@ -58,14 +75,15 @@ class ProblemBase():
                     contour_list.append(contour)
                 return contour_list
             
-            elif self.config['nx']==3:
+            elif self.nx==3:
                 ## get watertight verts, faces for simjeb
                 verts_faces_list = []
                 for z_ in z_latents: ## do marching cubes for every z
-                    verts_, faces_ = get_watertight_mesh_for_latent(f, params, z_, bounds=self.config["bounds"],
-                                                                mc_resolution=self.config["mc_resolution"], 
-                                                                device=z_latents.device, chunks=self.config['mc_chunks'])
-                    verts_, faces_ = fast_simplification.simplify(verts_, faces_, target_reduction=self.config['mesh_reduction']) ## target_reduction
+                    verts_, faces_ = get_watertight_mesh_for_latent(f, params, z_, bounds=self.bounds,
+                                                                mc_resolution=mc_resolution, 
+                                                                device=z_latents.device, chunks=mc_chunks)
+                    if mesh_reduction > 0.0:
+                        verts_, faces_ = fast_simplification.simplify(verts_, faces_, target_reduction=mesh_reduction) ## target_reduction
                     verts_faces_list.append((verts_, faces_))
                 return verts_faces_list
         except Exception as e:
@@ -73,45 +91,49 @@ class ProblemBase():
             return None
         
         
-    def recalc_output(self, f, params, z_latents):
+    def recalc_output(self,
+                      netp: NetWithPartials, 
+                      z_latents, 
+                      mc_resolution,
+                      mc_chunks,
+                      mesh_reduction, 
+                      nf_is_density,
+                      level_set,
+                      **kwargs):
         """Compute the function on the grid.
         epoch: will be used to identify figures for wandb or saving
         :param z_latents:
         :get_contour: only for 2d; if True, will return the contour instead of the full grid
         """        
-        if self.config['nx']==2:
+        if self.nx==2:
             ## just return the function values on the standard grid (used for visualization)
-            with torch.no_grad():
-                y = f(params, *tensor_product_xz(self.xs, z_latents)).detach().cpu().numpy()
+            y = netp.grouped_no_grad_fwd('vf', *tensor_product_xz(self.xs, z_latents))
             Y = einops.rearrange(y, '(bz h w) 1 -> bz h w', h=self.X0.shape[0], w=self.X0.shape[1])
-            return y, Y
+            return Y
                     
-        elif self.config['nx']==3:
+        elif self.nx==3:
             verts_faces_list = []
             for z_ in z_latents: ## do marching cubes for every z
-                
                 def f_fixed_z(x):
                     with torch.no_grad():
                         """A wrapper for calling the model with a single fixed latent code"""
-                        return f(params, *tensor_product_xz(x, z_.unsqueeze(0))).squeeze(0)
+                        return netp.vf(*tensor_product_xz(x, z_.unsqueeze(0))).squeeze(0)
                 
                 verts_, faces_ = get_mesh(f_fixed_z,
-                                            N=self.config["mc_resolution"],
+                                            N=mc_resolution,
                                             device=z_latents.device,
-                                            bbox_min=self.config["bounds"][:,0],
-                                            bbox_max=self.config["bounds"][:,1],
-                                            chunks=1,
+                                            bbox_min=self.bounds[:,0],
+                                            bbox_max=self.bounds[:,1],
+                                            chunks=mc_chunks,
+                                            level=level_set,
+                                            nf_is_density=nf_is_density,
+                                            watertight=True,
                                             return_normals=0)
-                verts_, faces_ = fast_simplification.simplify(verts_, faces_, target_reduction=self.config['mesh_reduction']) ## target_reduction
+                if mesh_reduction > 0.0:
+                    verts_, faces_ = fast_simplification.simplify(verts_, faces_, target_reduction=mesh_reduction) ## target_reduction
 
                 # print(f"Found a mesh with {len(verts_)} vertices and {len(faces_)} faces")
                 verts_faces_list.append((verts_, faces_))
             return verts_faces_list
     
-    def is_inside_envelope(self, p_np: PointWrapper):
-        """Remove points that are outside the envelope"""
-        if not self.config['problem'] == 'simjeb':
-            raise NotImplementedError('This function is only implemented for the simjeb problem')
-        
-        is_inside_mask = self.mesh_env.contains(p_np.data)
-        return is_inside_mask
+    

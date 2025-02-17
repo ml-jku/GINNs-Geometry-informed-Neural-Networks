@@ -1,0 +1,349 @@
+###################
+## Model
+###################
+
+# put all reused variables into vars
+vars:
+  nx: 3 # input dimension
+  nz: 2 # dimension of the modulation vector
+  ginn_bsize: 9 # usually denoted as bz in the code; i.e. the number of ginn models to train in parallel
+  val_plot_grid: [3, 3] # if nz>2: [n_first_dims, shapes_per_dim]
+  problem_str: 'simjeb'
+  level_set: 0.5 # 0.95
+  ginn_on: 1
+  n_points_surface: 100001 # plus one to round
+  center_scale_coords: False # important for higher-resolution meshing/plotting
+  # model_str: 'cond_siren'
+  model_str: 'cond_wire'
+  nf_is_density: True
+  simjeb_root_dir: 'GINN/simJEB/data'
+  warmup: 0
+
+  
+
+# useful global variables
+nx: ${vars.nx}
+nz: ${vars.nz}
+ginn_bsize: ${vars.ginn_bsize}
+nf_is_density: ${vars.nf_is_density}
+max_epochs: 3000
+# if heaviside is used, level_set=0.5 works this way; for p-scheduling this does not work as 0.5^4=0.0625
+level_set: ${vars.level_set}
+
+
+model:
+  nx: ${vars.nx}
+  nz: ${vars.nz}
+  model_str: ${vars.model_str}
+  return_density: ${vars.nf_is_density}
+  # # siren
+  # w0_initial: 8
+  # w0: 1
+  # wire
+  w0_initial: 18 # that works for cond_wire
+  wire_scale: 6
+  layers: [64,64,64]  # 3x128 and 3x256 perform similarly (see 67hsix5l vs 2kml4jrp)
+
+wandb_experiment_name: ${eval:'${vars.problem_str}'+'_'+'${vars.model_str}'}
+
+reset_zlatents_every_n_epochs: 1  # uncomment to set; not set means the latents are kept fix
+latent_sampling:
+  nz: ${vars.nz}
+  ginn_bsize: ${vars.ginn_bsize}
+  val_plot_grid: ${vars.val_plot_grid}
+  z_sample_method: 'equidistant'  # any of ['uniform', 'normal', 'equidistant']
+  z_sample_interval: [0,0.25]
+
+###################
+## Data
+################### 
+data:
+  simjeb_ids: []  # 59, 62, 114, 148, 302; has to be [left_corner, right_corner] for the interpolation
+
+###################
+## GINN
+###################
+# Training
+ginn_bsize: ${vars.ginn_bsize} # usually denoted as bz in the code; i.e. the number of ginn models to train in parallel
+train_plot_max_n_shapes: 16 #${eval:${ginn_bsize}+${eval:len(${simjeb_ids})}} # must not be bigger than ginn_bsize
+plot_every_n_epochs: 20
+# Validation
+valid_every_n_epochs: 200
+# for nz>2 the zlatents are not easily displayed. Therefore we plot interpolations along the first n dimensions with subsampling
+# for nz \in {1,2} we can plot the zlatents directly
+
+###################
+## Loss-balancing
+###################
+## global switch for GINN losses
+
+## Data losses
+lambda_data: 0.0e+1
+lambda_lip: ${eval:1.0e-7 * 0}
+lambda_dirichlet: ${eval:1.0e1 * 0}
+dirichlet_use_surface_points: True
+
+## GINN losses
+objective: 'comp'
+### local
+lambda_if: ${eval:${vars.ginn_on} * 10}
+lambda_env: ${eval:${vars.ginn_on} * 1}
+lambda_obst: ${eval:${vars.ginn_on} * 0}
+lambda_if_normal: ${eval:${vars.ginn_on} * 1}
+### global
+lambda_eikonal: ${eval:${vars.ginn_on} * 0}
+lambda_scc: ${eval:${vars.ginn_on} * 0}
+lambda_curv: ${eval:${vars.ginn_on} * 0} #5.0e-3
+lambda_div: ${eval:int(${vars.ginn_bsize}> 1) * 0}
+lambda_comp: 1
+lambda_vol: 1
+lambda_vol2: 0
+lambda_chamfer_div: ${eval:int(${vars.ginn_bsize}> 1) * 1}
+lambda_vol_gpu: 0
+lambda_wasserstein_div: 0
+
+max_curv: 0 # 180 # 500
+max_div: -0.1 # for min-diversity
+# max_div: -0.2 # for min-diversity
+# max_div: -2.0 # for leinster-diversity
+
+scale_curv: 1.0e-4
+scale_chamfer_div: 10.0
+scale_div: 1.0
+scale_vol: 10.0
+scale_comp: 1000.0
+
+start_curv: 0
+start_chamfer_div: 350
+scale_wasserstein_div: 10.0
+start_comp: ${vars.warmup}
+
+
+
+
+
+###################
+## Curvature
+###################
+
+
+
+###################
+## SCC algorithm
+###################
+ph:
+  nx: ${vars.nx}
+  problem_str: ${vars.problem_str}
+  ginn_bsize: ${vars.ginn_bsize}
+  iso_level: -0.00  # implicitly sets the thickness
+  ph_1_hole_level: 0.1
+  ph_loss_maxdim: 0
+  ph_loss_target_betti: [1, 5, 0]
+  scc_penalty_norm_eps: 1.0e-4
+  scc_n_grid_points: 64
+  evaluate_ph_grid_per_shape: True  # Set to True to save memory, but it's slower
+
+###################
+## Surface points
+###################
+surface:
+  nx: ${vars.nx}
+  problem_str: ${vars.problem_str}
+  ginn_bsize: ${vars.ginn_bsize}
+  n_points_surface: ${vars.n_points_surface}
+  level_set: ${vars.level_set}
+  recompute_every_n_epochs: 1
+  do_uniform_resampling: False
+  equidistant_init_grid: True
+  bin_search_steps: 10
+  surf_pts_use_newton: False ## whether to use Newton iteration or Adam
+  surf_pts_n_iter: 10 # iterations of surface flow
+
+
+###################
+## DIVERSITY
+###################
+# div_neighbor_agg_fn: 'leinster'
+leinster_temp: 1.0
+leinster_q: 2
+diversity_pts_source: surface # domain, surface
+div_norm_order: 1
+chamfer_div_eps: 1.0e-9 # TODO does this make a difference?
+diversity_pts_source: domain # domain, surface
+chamfer_p: 1 # is the p for the euclidean distance in the chamfer loss
+chamfer_div_subsample: 8192
+wasserstein_subsample: 5000
+
+###################
+## Metrics computation
+###################
+
+
+
+###################
+## LOGGING
+###################
+# log_level: 'DEBUG'
+log_level: 'INFO'
+
+## Multi-processing
+num_workers: ${eval:min(${vars.ginn_bsize},8)}  # 0 means no multi-processing
+
+## Plotting
+plot:
+  level_set: ${vars.level_set}
+  val_plot_grid: ${vars.val_plot_grid}
+  problem_str: ${vars.problem_str}
+  fig_size: [12, 7]
+  show_colorbar: True
+
+meshing:
+  level_set: ${vars.level_set}
+  nf_is_density: ${vars.nf_is_density}
+  mc_resolution: 128
+  mesh_reduction: 0.9  # 0.9 means 10% of the original resolution; 0.0 means no change
+
+## Specific plots
+plot_shape: True
+val_plot_shape: True
+plot_surface_pts_every_n_epochs: 50
+plot_ph_diagram: True
+plot_grad_field: True
+plot_chamfer_grads: True
+
+## Timer
+timer:
+  print: False
+  accumulate: True ## record and print the accumulated timings at the end
+
+problem_sampling:
+  ## Number of points to sample
+  nx: ${vars.nx}
+  n_points_domain: 2048  # used for eikonal loss
+  n_points_envelope: 2048
+  n_points_interfaces: 2048
+  n_points_normals: 2048
+  n_points_surface: ${vars.n_points_surface}
+  n_points_rotation_symmetric: 512
+
+###################
+## Problem
+###################
+problem:
+  problem_str: ${vars.problem_str}
+  nf_is_density: ${vars.nf_is_density}
+  center_scale_coords: ${vars.center_scale_coords}
+  simjeb_root_dir: ${vars.simjeb_root_dir}
+  plot_2d_resolution: 100 # means 100x100
+  mc_resolution: 128
+  mc_chunks: 1
+  mesh_reduction: 0.9  # 0.9 means 10% of the original resolution; 0.0 means no change
+  width: 30
+  height: 10
+  depth: 10
+
+
+###################
+## FEM
+###################
+FEM:
+  center_scale_coords: ${vars.center_scale_coords}
+  problem_str: ${vars.problem_str}
+  simjeb_root_dir: ${vars.simjeb_root_dir}
+  # SIMJEB envelope has ratios [0.6 1 0.35]
+  # cantilever min resolution: [25,75,25]
+  # resolution: [17,29,10]
+  # resolution: [4,6,2] # for debugging
+  # resolution: [8,12,4] # for debugging
+  resolution: [26,43,15] # 16770
+  # resolution: [36,60,21] # 45360
+  # resolution: [48,80,28] # 107520
+  p: 1.5  # default: 3; should be > 1, so that gradient depends on rho: p * (rho^(p-1))
+  vol_frac: 0.07
+  filter_radius: 0.05
+  top_max_num_workers: 16
+  normalize_compliance: False  # if True, the compliance is normalized by the initial compliance
+  add_x_offset: False
+  use_filters: False
+  vol_loss: 'mse_pushdown'  # 'mae', 'mse', 'mse_pushdown', 'mse_unscaled_pushdown' (does not work), 'mae_unscaled_pushdown' would need some scaling
+  F_jeb:
+    load_case: diagonal
+    diagonal:
+      back_left: [-1.0,0,0.0]
+      back_right: [-1.0,0,0.0]
+      top_left: [0.0,0,1.0]
+      top_right: [0.0,0,1.0]
+    diagonal_42_degrees:
+      back_left: [-1.0,0,0.0]
+      back_right: [-1.0,0,0.0]
+      # top_left: [0.0,0,0.7]
+      # top_right: [0.0,0,0.7]
+      top_left: [0.0,0,0.9]
+      top_right: [0.0,0,0.9]
+    torque:
+      back_left: [-1,0,0.0]
+      back_right: [1,0,0.0]
+      top_left: [0.0,0,0.0]
+      top_right: [0.0,0,0.0]
+    diag_torque:
+      back_left: [-0.5,0,0.0]
+      back_right: [0.5,0,0.0]
+      top_left: [0.0,0,1.0]
+      top_right: [0.0,0,1.0]
+
+
+###################
+## Topology optimization
+###################
+
+# FeniTop doubles every 100 iterations; we increase beta smoothly
+beta_sched:
+  init: 1.
+  interval: 1
+  max: 100.
+  start_iter: 0
+  stop_iter: 400
+
+p_sched:
+  init: 1.
+  interval: 1 # increase beta every interval epochs
+  max: 3.
+  start_iter: 100000  # turned off by default
+  stop_iter: ${eval:${vars.warmup}+500}
+
+
+###################
+## Training
+###################
+## Outer optimization loop
+lr: 0.001
+## optimizer
+opt: adam  # adam, lbfgs, adam_lbfgs, adam_nncg, adam_lbfgs_nncg
+## scheduler
+use_scheduler: False
+scheduler_gamma: 0.5
+decay_steps: 5000
+## gradient clipping
+grad_clipping_on: True
+grad_clip: 0.1
+## autoclip: https://arxiv.org/abs/2007.14469
+auto_clip_on: False
+auto_clip_percentile: 0.8
+auto_clip_hist_len: 50
+auto_clip_min_len: 50
+
+## Weight saving
+# model_save_path: '_saved_models'
+model_save_path: 'path/to/dir'
+save_every_n_epochs: 10
+overwrite_existing_saved_model: True
+save_optimizer: False
+
+## Weight loading
+load_mos: False  # load model, optimizer, scheduler
+load_model: False
+load_optimizer: False
+load_scheduler: False
+# model_load_wandb_id: bjyaldf4  # nz=2
+model_load_wandb_id: yk2iukgi  # nz=3
+# model_load_wandb_id: a575ptpe # nz=4

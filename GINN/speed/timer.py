@@ -1,11 +1,12 @@
 from time import perf_counter
-from util.misc import set_and_true
+
+import torch
 from contextlib import nullcontext
 
 class Timer:
     _instance = None
     
-    def __init__(self, config, lock=None):
+    def __init__(self, print=False, accumulate=False, lock=None):
         """
         Wrapper class for the timing context manager.
         This is a singleton class, it only has one instance, and in our case initializing several is no problem.
@@ -16,13 +17,12 @@ class Timer:
         self.__class__.__new__ = lambda _: self
         Timer._instance = self
         # proceed with initialization
-        self.config = config
+        self.do_print = print
+        self.do_accumulate = accumulate
         self.logbook = {}
         if lock is None:
             print(f'WARNING: No lock provided for TimerHelper')
         self.lock = lock if lock else nullcontext()  # Lock for the shared dictionary; only if lock is provided
-        self.do_print = set_and_true('timer_print', config)
-        self.do_accumulate = set_and_true('timer_accumulate', config)
         self.do_record = self.do_print or self.do_accumulate
         self.start = perf_counter()
 
@@ -59,6 +59,7 @@ class RecordTime:
     
     def __enter__(self):
         self.start = perf_counter()
+        self.start_mem = torch.cuda.memory_reserved()
         return self
 
     def __exit__(self, type, value, traceback):
@@ -66,7 +67,9 @@ class RecordTime:
         with self.lock:  # Synchronize access to the logbook
             if self.timer_helper.do_print:
                 self.readout = f'Time for {self.name}: {self.time:.3f}'
+                self.end_mem = torch.cuda.memory_reserved()
                 print(self.readout)
+                print(f'Memory before: {self.start_mem/2**30:0.1f}, after: {self.end_mem/2**30:0.1f}, diff: {(self.end_mem - self.start_mem)/2**30:0.1f}')
             if self.timer_helper.do_accumulate:
                 if self.name in self.timer_helper.logbook:
                     self.timer_helper.logbook[self.name] += self.time

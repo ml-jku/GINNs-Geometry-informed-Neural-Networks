@@ -3,18 +3,8 @@ import atexit
 from contextlib import nullcontext
 import copy
 import multiprocessing as mp
-import torch
 from GINN.speed.timer import Timer
-from util.misc import do_plot
 from GINN.speed.dummy_async_res import DummyAsyncResult
-
-def contains_tensor(obj):
-    if isinstance(obj, list):
-        return any(contains_tensor(item) for item in obj)
-    elif isinstance(obj, dict):
-        return any(contains_tensor(value) for value in obj.values())
-    else:
-        return torch.is_tensor(obj)
 
 
 def wrapper(func, timer, time_str, arg_tuples, kwargs_dict):
@@ -29,10 +19,8 @@ def wrapper(func, timer, time_str, arg_tuples, kwargs_dict):
 
 class MPManager():
     
-    def __init__(self, config) -> None:
-        self.config = config      
-        n_workers = config.get('num_workers', 0)
-        self.is_mp_on = n_workers > 0
+    def __init__(self, n_workers=0) -> None:
+        self.is_mp_on = n_workers > 1
         if self.is_mp_on:
             # use dill for pickling
             # ctx = mp.get_context()
@@ -60,18 +48,7 @@ class MPManager():
         self.pool.close()
         self.pool.join()
     
-    def _do_plot_only_every_n_epochs(self):
-        if 'plot_every_n_epochs' not in self.config or self.config['plot_every_n_epochs'] is None:
-            return True
-        return (self.epoch % self.config['plot_every_n_epochs'] == 0) or (self.epoch == self.config['max_epochs'])
-
-    def plot(self, func, fig_key, arg_list=[], kwargs_dict={}):
-        if not do_plot(self.config, self.epoch, key=fig_key):
-            return
-        
-        if not self._do_plot_only_every_n_epochs():
-            return
-                
+    def plot(self, func, fig_key, arg_list=[], kwargs_dict={}):                
         if self.epoch not in self.async_results_dict:
             self.async_results_dict[self.epoch] = []
         
@@ -80,19 +57,13 @@ class MPManager():
             # deepcopy the args and kwargs to avoid pickling errors
             arg_list = copy.deepcopy(arg_list)
             kwargs_dict = copy.deepcopy(kwargs_dict)
-            
-            has_tensor_in_arg_list = contains_tensor(arg_list)
-            has_tensor_in_kwargs_dict = contains_tensor(kwargs_dict)
-            assert not has_tensor_in_arg_list and not has_tensor_in_kwargs_dict, 'Cannot pass tensors to multiprocessing'
+            # ATTENTION: can not pass tensor as argument to multiprocessing
             self.async_results_dict[self.epoch].append(self.pool.apply_async(wrapper, (func, self.timer, fig_key, arg_list, kwargs_dict)))
         else:
             with self.timer.record(f'plot_{func.__name__}'):
                 self.async_results_dict[self.epoch].append(DummyAsyncResult(func(*arg_list, **kwargs_dict)))
                 
     def metrics(self, func, arg_list=[], kwargs_dict={}):
-        
-        # if not (self.config['shape_metrics_every_n_epochs'] > 0 and self.epoch % self.config['shape_metrics_every_n_epochs'] == 0):
-        #     return
         
         if self.epoch not in self.async_results_dict:
             self.async_results_dict[self.epoch] = []
@@ -101,11 +72,7 @@ class MPManager():
         if self.is_mp_on:
             arg_list = copy.deepcopy(arg_list)
             kwargs_dict = copy.deepcopy(kwargs_dict)
-            
-            has_tensor_in_arg_list = contains_tensor(arg_list)
-            has_tensor_in_kwargs_dict = contains_tensor(kwargs_dict)
-            assert not has_tensor_in_arg_list and not has_tensor_in_kwargs_dict, 'Cannot pass tensors to multiprocessing'
-            
+            # ATTENTION: can not pass tensor as argument to multiprocessing
             async_dict_res = self.pool.apply_async(wrapper, (func, self.timer, 'metrics', arg_list, kwargs_dict))
             self.async_results_dict[self.epoch].append(async_dict_res)
         else:

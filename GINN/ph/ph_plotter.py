@@ -19,8 +19,6 @@ import warnings
 
 from models.point_wrapper import PointWrapper
 from util.vis_utils import flip_arrow, generate_color, n_rows_cols
-from util.misc import do_plot, set_and_true
-import k3d
 # Filter Warning - TODO: maybe fix this and other lines more properly later
 # fig += k3d.mesh(verts, faces, group=group, color=MESH_COLOR, side='double', opacity=MESH_OPACITY, translation=[0, shape_grid[1]*i_col, shape_grid[2]*i_row]) 
 warnings.filterwarnings("ignore", message="Given trait value dtype.*")
@@ -74,11 +72,10 @@ PASTEL_VIOLET = 0xCAB3FF
  
 
 class PHPlotter():
-    def __init__(self, config, fig_size="?"):
-        self.config = config
-        self.fig_size = self.config['fig_size'] if 'fig_size' in config else fig_size
+    def __init__(self, iso_level, fig_size=(12, 12)):
+        self.fig_size = fig_size
         self.infty = 2
-        self.ISO = 0.#self.config['iso_level']
+        self.ISO = iso_level
 
     def _n_rows_cols(self, n_shapes_to_plot):
         ''' Returns the number of n_rows and columns. Favor more n_rows over n_cols to better show in wandb side-by-side '''
@@ -88,13 +85,14 @@ class PHPlotter():
 
     def plot_ph_diagram(self, PH):
         
-        n_rows, n_cols = n_rows_cols(len(PH), self.config.get('flatten_plots', False))
-        
+        n_rows, n_cols = n_rows_cols(len(PH))
         fig, axs = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=self.fig_size, squeeze=False)
 
         for i in range(0, n_rows):
             for j in range(0, n_cols):
-
+                if i * n_cols + j >= len(PH):
+                    break
+                
                 ax = axs[i, j]
                 ph = PH[i*n_cols + j]
 
@@ -122,38 +120,14 @@ class PHPlotter():
         return self.handle_plot_show_matplotlib(fig, fig_label="PH Diagram")
 
 
-    def handle_plot_show_matplotlib(self, fig, fig_label=None, force_save=False):
+    def handle_plot_show_matplotlib(self, fig, fig_label):
         """ Handle piping the plot to different outputs. """
-
-        kwargs = {'transparent':False, 'facecolor':'w', 'dpi':100} 
-        if not set_and_true('show_colorbar', self.config): kwargs |= {'bbox_inches':'tight', 'pad_inches':0}
-
-        wandb_img = None
-        if self.config['fig_show']:
-            # plt.suptitle(fig_label)   
-            plt.tight_layout()
-            plt.show()
-        elif self.config['fig_save']:
-            assert fig_label is not None, f"fig_label unspecified for saving the figure"
-            fig_path = f'{self.fig_parent_path}/{fig_label}'
-            Path(fig_path).mkdir(parents=True, exist_ok=True)
-            file_path = f'{fig_path}/{self.epoch}.png'
-            fig.savefig(file_path, **kwargs)
-        elif self.config['fig_wandb']:
-            assert fig_label is not None, f"fig_label unspecified for wandb"
-            ## Let wandb handle the saving (this has a lot of whitespace)
-            ## Remove the whitespace
-            with BytesIO() as buf:
-                fig.savefig(buf, **kwargs)
-                buf.seek(0)
-                wandb_img = wandb.Image(Image.open(buf))
-            # self.log[fig_label] = wandb_img
-            # self.log[fig_label] = wandb.Image(fig)
-            # self.log[fig_label] = fig
-        
-        if force_save: ## TODO: quickfix for animations
-            file_path = f'{self.config["fig_path"]}/{fig_label}/{self.epoch}.png'
-            fig.savefig(file_path, **kwargs)
+        ## Let wandb handle the saving (this has a lot of whitespace)
+        ## Remove the whitespace
+        with BytesIO() as buf:
+            fig.savefig(buf, transparent=False, facecolor='w', dpi=100)
+            buf.seek(0)
+            wandb_img = wandb.Image(Image.open(buf))
         
         plt.close(fig) ## close figures, otherwise they just stack up
         

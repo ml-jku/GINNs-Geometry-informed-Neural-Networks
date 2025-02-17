@@ -1,10 +1,15 @@
 import numpy as np
 import torch
 
-from util.misc import set_and_true
-
 class AutoClip:
-    def __init__(self, config):
+    def __init__(self,
+                 grad_clipping_on,
+                 auto_clip_on,
+                 grad_clip,
+                 auto_clip_percentile,
+                 auto_clip_hist_len,
+                 auto_clip_min_len,
+                 ):
         """
         Initializes the AutoClip instance, inspired by https://arxiv.org/abs/2007.14469
 
@@ -16,13 +21,13 @@ class AutoClip:
         :param enabled: Flag to enable or disable adaptive clipping.
         """
         
-        self.grad_clip_enabled = set_and_true('grad_clipping_on', config)
-        self.auto_clip_enabled = set_and_true('auto_clip_on', config)
-        self.default_clip_value = config.get('grad_clip', None)
-        self.percentile = config.get('auto_clip_percentile', None)
+        self.grad_clip_enabled = grad_clipping_on
+        self.auto_clip_enabled = auto_clip_on
+        self.default_clip_value = grad_clip
+        self.percentile = auto_clip_percentile
 
-        history_size=config.get('auto_clip_hist_len', None)
-        min_history_length=config.get('auto_clip_min_len', None)
+        history_size = auto_clip_hist_len
+        min_history_length = auto_clip_min_len
         
         self.min_history_length = min_history_length
         
@@ -69,12 +74,4 @@ class AutoClip:
             # return nan
             return torch.tensor(float('nan'))            
 
-    def grad_norm(self, parameters):
-        """
-        Computes the norm of the gradients of the parameters.
-        Args:
-            parameters (iterable): An iterable of torch.Tensor containing the parameters of the model.
-        """        
-        grads = [param.grad.detach().flatten() for param in parameters if param.grad is not None ]
-        grad_norm = torch.cat(grads).norm()
-        return grad_norm
+    

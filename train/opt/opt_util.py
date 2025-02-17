@@ -5,10 +5,11 @@ from train.opt.adam_lbfgs import Adam_LBFGS
 from train.opt.adam_lbfgs_nncg import Adam_LBFGS_NNCG
 from train.opt.adam_lbgfs_gd import Adam_LBFGS_GD
 from train.train_utils.autoclip import AutoClip
+from util.misc import compute_grad_norm
 
 # code adapted from: https://anonymous.4open.science/r/opt_for_pinns-9246/src/train_utils.py
 
-def opt_step(opt, epoch, model, loss_fn, z, z_corners, batch, auto_clip: AutoClip):
+def opt_step(opt, epoch, model, loss_and_backward_fn, z, z_corners, batch, auto_clip: AutoClip):
     
     log_dict = {}
     
@@ -16,7 +17,7 @@ def opt_step(opt, epoch, model, loss_fn, z, z_corners, batch, auto_clip: AutoCli
     if isinstance(opt, Adam_LBFGS_NNCG) and epoch >= opt.switch_epoch2 and epoch % opt.precond_update_freq == 0:
         print(f'Updating preconditioner at epoch {epoch}')
         opt.zero_grad()
-        loss, _, __, ___ = loss_fn(z, epoch, batch, z_corners)
+        loss, _, __, ___ = loss_and_backward_fn(z, epoch, batch, z_corners)
         grad_tuple = torch.autograd.grad(loss, model.parameters(), create_graph=True)
         opt.nncg.update_preconditioner(grad_tuple)
             
@@ -25,30 +26,28 @@ def opt_step(opt, epoch, model, loss_fn, z, z_corners, batch, auto_clip: AutoCli
         #print(f'Using default closure at epoch {epoch}')
         def closure():
             opt.zero_grad()
-            loss, sub_loss_dict, sub_loss_unweighted_dict, sub_al_loss_dict, al_vec_l2_dict = loss_fn(z, epoch, batch, z_corners)
+            loss, loss_dicts = loss_and_backward_fn(z, epoch, batch, z_corners)
             grad_tuple = torch.autograd.grad(loss, model.parameters(), create_graph=True)
             if 'loss' not in log_dict:
                 log_dict['loss'] = loss
-                log_dict.update(sub_loss_dict)
-                log_dict.update(sub_loss_unweighted_dict)
-                log_dict.update(sub_al_loss_dict)
-                log_dict.update(al_vec_l2_dict)
+                for loss_dict in loss_dicts:
+                    log_dict.update(loss_dict)
             return loss, grad_tuple
     else:
         def closure():
             opt.zero_grad()
-            loss, sub_loss_dict, sub_loss_unweighted_dict, sub_al_loss_dict, al_vec_l2_dict = loss_fn(z, epoch, batch, z_corners)
-            loss.backward()
+            loss, loss_dicts = loss_and_backward_fn(z, epoch, batch, z_corners)
             if 'loss' not in log_dict:
-                log_dict.update(sub_loss_dict)
-                log_dict.update(sub_loss_unweighted_dict)
-                log_dict.update(sub_al_loss_dict)
-                log_dict.update(al_vec_l2_dict)
+                for loss_dict in loss_dicts:
+                    log_dict.update(loss_dict)
                 log_dict['loss'] = loss
-                grad_norm = auto_clip.grad_norm(model.parameters())
+                grad_norm = compute_grad_norm(model.parameters())
                 if torch.isnan(grad_norm).any():
                     pass
                 log_dict['grad_norm_pre_clip'] = grad_norm
+                # print(f'WARNING: gradclip hard coded to 0.1')
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+                
                 if auto_clip.grad_clip_enabled:
                     auto_clip.update_gradient_norm_history(grad_norm)
                     torch.nn.utils.clip_grad_norm_(model.parameters(), auto_clip.get_clip_value())
@@ -63,14 +62,9 @@ def opt_step(opt, epoch, model, loss_fn, z, z_corners, batch, auto_clip: AutoCli
     return log_dict
 
 
-def get_opt(opt_name, opt_params, model_params, lambda_vec_dict):
+def get_opt(opt_name, opt_params, model_params):
     if opt_name == 'adam':
         param_list = [{'params': model_params}]
-        for key, value in lambda_vec_dict.items():
-            pass
-            #if value is not None:
-            #    if key != 'lambda_scc':
-            #        param_list.append({'params': value[0], 'maximize': True})
         return Adam(param_list) #, **opt_params)  ## use default parameters
     elif opt_name == 'lbfgs':
         if "history_size" in opt_params:

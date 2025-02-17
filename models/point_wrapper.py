@@ -1,4 +1,5 @@
 import copy
+from typing import List
 
 import einops
 import numpy as np
@@ -31,8 +32,11 @@ class PointWrapper:
 
     @classmethod
     def create_from_equal_bx(cls, x):
+        '''Create a Pointwrapper if the number of points per shape is equal
+            Also the shape of x is [bz, bx, dx]
+        '''
         assert len(x.shape) == 3, 'needs to be 3 dimensional'
-        bz, bx, nx = x.shape
+        bz, bx, dx = x.shape
         map = {}  # track the indices of the latents
         for i in range(bz):
             map[i] = torch.arange(bx) + i * bx
@@ -91,14 +95,25 @@ class PointWrapper:
             new_map[i] = self._map[i].cpu()
         return PointWrapper(self.data.cpu(), new_map)
     
-    def to(self, device):
-        if self.data.device == device:
-            # x tensor is already on CPU
-            return self
-        new_map = {}
-        for i in range(self.bz):
-            new_map[i] = self._map[i].to(device)
-        return PointWrapper(self.data.to(device), new_map)
+    def to(self, device_or_dtype):
+        assert isinstance(device_or_dtype, torch.device) or isinstance(device_or_dtype, torch.dtype), 'device_or_dtype must be a torch.device or torch.dtype'
+        
+        if isinstance(device_or_dtype, torch.device):
+            if self.data.device == device_or_dtype:
+                # x tensor is already on CPU
+                return self
+            new_map = {}
+            for i in range(self.bz):
+                new_map[i] = self._map[i].to(device_or_dtype)
+            return PointWrapper(self.data.to(device_or_dtype), new_map)
+        elif isinstance(device_or_dtype, torch.dtype):
+            if self.data.dtype == device_or_dtype:
+                # x tensor dtype is already set to device_or_dtype
+                return self
+            new_map = {}
+            for i in range(self.bz):
+                new_map[i] = self._map[i]
+            return PointWrapper(self.data.to(device_or_dtype), new_map)
 
     def detach(self):
         return PointWrapper(self.data.detach(), self._map)
@@ -122,7 +137,22 @@ class PointWrapper:
     def set_pts_of_shape(self, shape_idx, new_pts):
         self.data[self._map[shape_idx]] = new_pts
 
+    def select_w_shapes(self, incl_shapes: List[int]):
+        new_x = torch.cat([self.data[self._map[i]] for i in incl_shapes], dim=0)
+        new_map = {}
+        i_prev = 0
+        for i_shape in incl_shapes:
+            # get the indices that belong to this shape
+            idcs_i = self._map[i_shape]
+            # add the new indices
+            new_map[i_shape] = torch.arange(len(idcs_i), device=self.data.device) + i_prev
+            i_prev += len(idcs_i)
+        return PointWrapper(new_x, new_map)
+
     def select_w_mask(self, incl_mask):
+        # assert bool mask
+        assert incl_mask.dtype == torch.bool, 'incl_mask must be a boolean mask'
+        
         new_x = self.data[incl_mask]
         new_map = {}
         i_prev = 0
@@ -160,7 +190,7 @@ class PointWrapper:
         :return: z_in: [k nz]
         '''
         bz, nz = z.shape
-        z_in = torch.zeros((len(self.data), nz), device=self.data.device)
+        z_in = torch.zeros((len(self.data), nz), device=self.data.device, dtype=self.data.dtype)
         for i_shape in range(bz):
             if len(self._map[i_shape]) == 0:
                 continue

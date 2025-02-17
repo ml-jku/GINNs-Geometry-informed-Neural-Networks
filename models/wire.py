@@ -12,6 +12,39 @@ from torch import nn
 
 import torch.nn.functional as F
 
+class RealGaborLayerLegacy(nn.Module):
+    '''
+        Implicit representation with Gabor nonlinearity
+        
+        Inputs;
+            in_features: Input features
+            out_features; Output features
+            bias: if True, enable bias for the linear operation
+            is_first: Legacy SIREN parameter
+            omega_0: Legacy SIREN parameter
+            omega: Frequency of Gabor sinusoid term
+            scale: Scaling of Gabor Gaussian term
+    '''
+    
+    def __init__(self, in_features, out_features, bias=True,
+                 is_first=False, omega0=10.0, sigma0=10.0,
+                 trainable=False):
+        super().__init__()
+        self.omega_0 = omega0
+        self.scale_0 = sigma0
+        self.is_first = is_first
+        
+        self.in_features = in_features
+        
+        self.freqs = nn.Linear(in_features, out_features, bias=bias)
+        self.scale = nn.Linear(in_features, out_features, bias=bias)
+        
+    def forward(self, input):
+        omega = self.omega_0 * self.freqs(input)
+        scale = self.scale(input) * self.scale_0
+        return torch.cos(omega)*torch.exp(-(scale**2))
+        
+
 class RealGaborLayer(nn.Module):
     '''
         Implicit representation with Gabor nonlinearity
@@ -45,7 +78,6 @@ class RealGaborLayer(nn.Module):
         # scale = self.scale(input) * self.scale_0
         # return torch.cos(omega)*torch.exp(-(scale**2))
         omega, scale = torch.chunk(self.freq_scale(input), 2, dim=-1)
-        
         return torch.cos(self.omega_0 * omega)*torch.exp(-(self.scale_0 * scale**2))
 
 class ComplexGaborLayer(nn.Module):
@@ -149,23 +181,28 @@ class ConditionalWIRE(nn.Module):
     '''
     Since complex numbers don't work with jacrev, we need to use the real number version of the WIRE.
     '''
-    def __init__(self, layers: List[int],
-                 first_omega_0=30, hidden_omega_0=30., scale=10.0,
-                 pos_encode=False, sidelength=512, fn_samples=None,
-                 use_nyquist=True):
+    def __init__(self, 
+                 layers: List[int],
+                 return_density,
+                 first_omega_0=30, 
+                 hidden_omega_0=30., 
+                 scale=10.0, 
+                 use_legacy_gabor=False, 
+                 **kwargs):
         super().__init__()
+        self.layers = layers
+        self.return_density = return_density
+        self.first_omega_0 = first_omega_0
+        self.hidden_omega_0 = hidden_omega_0
+        self.scale = scale
+        self.use_legacy_gabor = use_legacy_gabor
         
         # All results in the paper were with the default complex 'gabor' nonlinearity
-        self.nonlin = RealGaborLayer
-        
-        dtype = torch.float
-        self.complex = True
-        self.wavelet = 'gabor'
-        
-        # Legacy parameter
-        self.pos_encode = False
-        
-        # assert len(layers) > 3, 'Code only implements at least 2 hidden layers'
+        # NOTE: I used partial(RelGaborLayer, omega0=first_omega_0, sigma0=scale) to set the default values, but there was some weird behavior. 
+        if use_legacy_gabor:
+            self.nonlin = RealGaborLayerLegacy
+        else:
+            self.nonlin = RealGaborLayer
         
         self.net = []
         self.net.append(self.nonlin(layers[0],
@@ -183,19 +220,15 @@ class ConditionalWIRE(nn.Module):
                                         sigma0=scale))
 
         final_linear = nn.Linear(layers[-2],
-                                 layers[-1],
-                                 dtype=dtype)
+                                 layers[-1])
         self.net.append(final_linear)
-        
-        # assert len(self.net) == len(layers) - 1, 'Number of layers does not match the number of hidden layers'
+        if self.return_density:
+            self.net.append(nn.Sigmoid())
         
         self.net = nn.Sequential(*self.net)
     
     def forward(self, x, z):
+        # convert to the right data type
         xz = torch.cat([x, z], dim=-1)
         output = self.net(xz)
-        
-        if self.wavelet == 'gabor':
-            return output.real
-         
         return output

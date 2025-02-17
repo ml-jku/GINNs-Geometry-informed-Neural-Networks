@@ -1,12 +1,12 @@
 import torch
 import numpy as np
 
-def sample_bbox(bnds, N=1000, nx=2):
+def sample_bbox(bnds, N=1000):
     """
     Sample N points in nx dimenions from a rectangular domain given by bnds.
     bnds[i] gives min, max along dimension i
     """
-    return bnds[:,0] + (bnds[:,-1] - bnds[:,0])*torch.rand(N, nx) ## Sample bx number of points within the specified domain
+    return bnds[:,0] + (bnds[:,-1] - bnds[:,0])*torch.rand(N, bnds.shape[0]) ## Sample bx number of points within the specified domain
 
 class BBLineSampler():
 
@@ -51,11 +51,6 @@ class BBLineSampler():
         ratio_per_line_list = [line_len / np.sum(line_lengths) for line_len in line_lengths]
         return lines_list, ratio_per_line_list
         
-    
-            
-            
-        
-    
 
 def sample_unit_interval(N, method='random'):
     """
@@ -82,12 +77,37 @@ def inside_disk(xs, x, R, strict=True):
     return compare(torch.norm(xs - x, dim=1), R)
 
 
-def sample_disk(x, R, N=50):
+def sample_disk(center, R, N=50):
     """Sample (approximately) N points from a 2D disk with radius R centered at x."""
-    bbox = torch.vstack([x - R, x + R]).T
+    bbox = torch.vstack([center - R, center + R]).T
     xs_bbox = sample_bbox(bbox, N=int(N * 4 / torch.pi))
 
     # Reject points outside the disk
-    inside_mask = inside_disk(xs_bbox, x, R)
+    inside_mask = inside_disk(xs_bbox, center, R)
     xs_disk = xs_bbox[inside_mask]
     return xs_disk
+
+def sample_ring(x, r1, r2, N=50):
+    """Sample (approximately) N points from a 2D ring with inner radius r1 and outer radius r2 centered at x."""
+    bbox = torch.vstack([x - r2, x + r2]).T
+    xs_bbox = sample_bbox(bbox, N=int(N * 4 * r2**2 / (r2**2 - r1**2) / torch.pi))
+
+    # Reject points outside the ring
+    inside_mask = inside_disk(xs_bbox, x, r2)
+    outside_mask = ~inside_disk(xs_bbox, x, r1)
+    ring_mask = inside_mask & outside_mask
+    xs_ring = xs_bbox[ring_mask]
+    return xs_ring
+
+def sample_circle(x, r, N=50):
+    """Sample (approximately) N points from a 2D circle with radius r centered at x."""
+    # sample between 0 and 1 and multiply by 2pi to get the angle
+    theta = 2 * np.pi * torch.rand(N)
+    xs = x + r * torch.vstack([torch.cos(theta), torch.sin(theta)]).T
+    return xs
+
+def sample_axis_parallel_rectangle_in_3d(start_xyz, end_xyz, N=50):
+    """Sample (approximately) N points from a 3D rectangle with corners at start_xyz and end_xyz."""
+    bbox = torch.vstack([start_xyz, end_xyz]).T
+    xs_bbox = sample_bbox(bbox, N=N)
+    return xs_bbox

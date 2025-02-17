@@ -8,8 +8,8 @@ import external.mesh_to_sdf as mesh_to_sdf
 
 class DeepSDFProtocol:
     def __init__(self, n_points_surface=250000, n_points_sphere_target=25000) -> None:
-        self.objdir = 'TODO_path'
-        self.target_dir = 'TODO_path'
+        self.objdir = '/system/user/publicdata/simjeb/SimJEB_surfmesh_.obj'
+        self.target_dir = '/system/user/publicdata/simjeb/deepsdf_samples_v2'
        
         ## print current directory
         print(f'os.getcwd()', os.getcwd())

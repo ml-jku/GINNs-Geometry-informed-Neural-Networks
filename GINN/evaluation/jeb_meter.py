@@ -10,7 +10,7 @@ from GINN import shape_boundary_helper
 from GINN.speed.dummy_mp_manager import DummyMPManager
 from GINN.shape_boundary_helper import ShapeBoundaryHelper
 from GINN.plot.plotter_dummy import DummyPlotter
-from GINN.evaluation.metrics_utils import chamfer_divergence, diversity_metric
+from GINN.evaluation.metrics_utils import two_sided_chamfer_divergence, diversity_metric
 from util.model_utils import tensor_product_xz
 from train.losses import strain_curvature_loss
 
@@ -22,11 +22,19 @@ class JebMeter:
         mesh.apply_scale(1/scale_factor)
         return mesh
     
-    def __init__(self, config, n_samples_at_if_for_chamfer=10000, debug_intermediate_shapes=False):
-        self.config = config
+    def __init__(self, 
+                 simjeb_root_dir, 
+                 n_points_surface=8192,
+                 metrics_diversity_n_samples=1000,
+                 n_samples_at_if_for_chamfer=10000, 
+                 debug_intermediate_shapes=False):
+        
+        self.n_points_surface = n_points_surface
+        self.metrics_diversity_n_samples = metrics_diversity_n_samples
+        
         self.logger = logging.getLogger('SimJEBMeter')
         self.debug_intermediate_shapes = debug_intermediate_shapes
-        simjeb_root_dir = config['simjeb_root_dir']
+        
         env_path = os.path.join(simjeb_root_dir, '411_for_envelope.obj')
         interface_path = os.path.join(simjeb_root_dir, 'interfaces.stl')
         center_for_translation_path = os.path.join(simjeb_root_dir, 'center_for_translation.npy')
@@ -51,7 +59,7 @@ class JebMeter:
         self.if_components = trimesh.graph.split(self.mesh_interface, only_watertight=False)
         self.if_samples = []
         for i in range(len(self.if_components)):
-            self.if_samples.append(self.if_components[i].sample(1000))
+            self.if_samples.append(self.if_components[i].sample(n_samples_at_if_for_chamfer // 6))
             
         self.domain_length = np.max(np.diff(self.bounds, axis=1))
         self.logger.debug(f'Domain length: {self.domain_length}')
@@ -64,11 +72,10 @@ class JebMeter:
         
         shape_boundary_helper = None
         if netp is not None:
-<<<<<<< HEAD
-            shape_boundary_helper = ShapeBoundaryHelper(self.config, netp, mp_manager=DummyMPManager(), plot_helper=DummyPlotter(), x_interface=self.pts_at_if, device=self.config['device'])
-=======
-            shape_boundary_helper = ShapeBoundaryHelper(self.config, netp, mp_manager=DummyMPManager(), plotter=DummyPlotter(), x_interface=self.pts_at_if, device=self.config['device'])
->>>>>>> 613f0e1 (add evaluation)
+            shape_boundary_helper = \
+                ShapeBoundaryHelper(nx=3, bounds=self.bounds, netp=netp, 
+                                    mp_manager=DummyMPManager(), plotter=DummyPlotter(), 
+                                    x_interface=self.pts_at_if, n_points_surface=self.n_points_surface)
         
         metrics_dicts_list = []
         mesh_models = []
@@ -87,12 +94,7 @@ class JebMeter:
             avg_metrics['std_' + key] = np.std([m[key] for m in metrics_dicts_list])
         
         if len(mesh_models) > 1:
-            avg_metrics.update(self.diversity_chamfer(mesh_models, 
-                                                div_inner_agg_fns=self.config['metrics_diversity_inner_agg_fns'],
-                                                div_outer_agg_fns=self.config['metrics_diversity_outer_agg_fns'],
-                                                div_ps=self.config['metrics_diversity_ps'],
-                                                chamfer_norm_orders=self.config['metrics_chamfer_orders'],
-                                                n_samples=self.config['metrics_diversity_n_samples']))
+            avg_metrics.update(self.diversity_chamfer(mesh_models, n_samples=self.metrics_diversity_n_samples))
         
         ## update keys with prefix
         for key in list(avg_metrics.keys()):
@@ -230,7 +232,7 @@ class JebMeter:
                 for div_outer_agg_fn in div_outer_agg_fns:
                     for div_p in div_ps:
                         diversity = diversity_metric(sampled_points, 
-                                                        lambda x, y: chamfer_divergence(x, y, dist_norm_order=dist_norm_order),
+                                                        lambda x, y: two_sided_chamfer_divergence(x, y, dist_norm_order=dist_norm_order),
                                                         div_p, inner_agg_fn=div_inner_agg_fn, outer_agg_fn=div_outer_agg_fn)
                         res_dict[f'diversity_chamfer-order_{dist_norm_order}-inner_agg_{div_inner_agg_fn}-outer_agg_{div_outer_agg_fn}-p_{div_p}'] = diversity
         
