@@ -1,4 +1,4 @@
-name: gento_fenicsx
+name: tom_fenicsx
 channels:
   - conda-forge
   - defaults

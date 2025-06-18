@@ -1,0 +1,170 @@
+adaptive_penalty_updates: true
+auto_clip_hist_len: 50
+auto_clip_min_len: 50
+auto_clip_on: true
+auto_clip_percentile: 0.8
+chamfer_metrics_vectorize: true
+curvature_expression: 4*H**2 - 2*K
+curvature_use_gradnorm_weights: false
+data_bsize: -1
+data_dir: /system/user/publicdata/simjeb/deepsdf_samples_v2
+decay_steps: 5000
+device: cuda
+dirichlet_use_surface_points: true
+div_norm_order: 2
+envelope_sample_from: exterior
+exclude_surface_points_close_to_interface: true
+exclude_surface_points_close_to_interface_cutoff: 0.02
+fig_path: img/simjeb/lip_siren
+fig_save: false
+fig_show: false
+fig_size:
+- 12
+- 7
+fig_wandb: true
+flatten_plots: false
+force_saving_shape: false
+ginn_bsize: 9
+ginn_on: 1
+gpu_list:
+- 3
+grad_clip: 0.5
+grad_clipping_on: true
+iso_level: -0.02
+lambda_curv: 0.001
+lambda_data: 0.0
+lambda_dirichlet: 0.0
+lambda_div: 1
+lambda_eikonal: 0.01
+lambda_env: 1000
+lambda_if: 100
+lambda_if_normal: 1.0
+lambda_lip: 0.0
+lambda_obst: 0.0
+lambda_scc: 1
+layers:
+- 5
+- 128
+- 128
+- 128
+- 1
+level_set: 0
+load_model: false
+load_mos: false
+load_optimizer: false
+load_scheduler: false
+lr: 0.001
+max_curv: 0
+max_div: -0.1
+max_epochs: 50000
+mc_chunks: 1
+mc_resolution: 128
+metrics_chamfer_orders:
+- 2
+metrics_diversity_inner_agg_fns:
+- sum
+metrics_diversity_n_samples: 1000
+metrics_diversity_outer_agg_fns:
+- sum
+metrics_diversity_ps:
+- 0.5
+model: cond_wire
+model_load_wandb_id: 9law8u4f
+model_save_path: /system/user/publicwork/radler/ginndata/saved_models
+n_gpus: 1
+n_points_domain: 2048
+n_points_envelope: 16383
+n_points_find_cps: 4096
+n_points_interfaces: 4096
+n_points_normals: 4096
+num_workers: 8
+nx: 3
+ny: 1
+nz: 2
+objective: curv
+opt: adam
+overwrite_existing_saved_model: true
+ph_loss_maxdim: 1
+ph_loss_sub0_points: false
+ph_loss_super0_points: false
+ph_num_workers: 9
+plot_every_n_epochs: 200
+plot_ph_diagram: true
+plot_shape: true
+plot_surface_points: true
+problem: simjeb
+reset_zlatents_every_n_epochs: 1
+reweigh_surface_pts_close_to_interface: false
+reweigh_surface_pts_close_to_interface_cutoff: 0.1
+reweigh_surface_pts_close_to_interface_power: 3.0
+save_every_n_epochs: 10
+save_model_dir: /system/user/publicwork/radler/ginndata/saved_models/cond_wire/2024_09_20__17_41_40-hcw86uql
+save_optimizer: true
+scc_n_grid_points: 64
+scc_penalty_norm_eps: 0.0001
+scheduler_gamma: 0.5
+seed: 11
+shape_metrics_every_n_epochs: 1000000
+show_colorbar: true
+simjeb_ids:
+- 62
+- 148
+simjeb_root_dir: GINN/simJEB/data
+strain_curvature_clip_max: 1000000.0
+surf_pts_converged_interval: 1
+surf_pts_inflate_bounds_amount: 0.05
+surf_pts_lr: 0.01
+surf_pts_n_iter: 10
+surf_pts_newton_clip: 0.15
+surf_pts_nof_points: 8192
+surf_pts_prec_eps: 0.001
+surf_pts_recompute_every_n_epochs: 1
+surf_pts_surpress_tqdm: true
+surf_pts_uniform_min_count: 1000
+surf_pts_uniform_n_iter: 10
+surf_pts_uniform_n_iter_reproj: 5
+surf_pts_uniform_nof_neighbours: 16
+surf_pts_uniform_prec_eps: 0.001
+surf_pts_uniform_reproject_surpress_tqdm: true
+surf_pts_uniform_stepsize: 0.75
+surf_pts_use_newton: true
+surf_pts_warmup_n_epochs: 500
+timer_accumulate: true
+timer_print: false
+train_plot_n_shapes: 11
+use_augmented_lagrangian: true
+use_compile: false
+use_scheduler: false
+val_plot_shape: true
+val_shape_metrics_every_n_epochs: 1000000
+valid_every_n_epochs: 2000
+valid_plot_n_shapes: 9
+wandb_entity_name: abra
+wandb_experiment_name: simjeb_cond_wire
+wandb_id: hcw86uql
+wandb_project_name: objgen
+wandb_run_group: g-gjvbvile
+weight_rescale_alpha: 0.9
+weight_rescale_interval: 100
+weight_rescale_on: false
+
+latent_sampling:
+  # ginn_bsize: ${vars.ginn_bsize}
+  # z_sample_method: 'uniform'  # any of ['uniform', 'normal', 'equidistant']
+  # val_plot_grid: ${vars.val_plot_grid}
+  # z_sample_interval: [0,1]
+  ginn_bsize: 9
+  val_plot_grid: [3,3]
+  z_sample_interval: [0,0.1]
+  z_sample_method: uniform
+  nz: 2
+
+model:
+  nx: 3
+  nz: 2
+  model_str: cond_wire
+  return_density: False
+  w0_initial: 18
+  w0: 1
+  wire_scale: 6
+  layers: [128,128,128]  # 3x128 and 3x256 perform similarly (see 67hsix5l vs 2kml4jrp)

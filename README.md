@@ -5,20 +5,24 @@
 
 <img src="media/diagonal_other_overlay.gif" width="800"/>
 
-This project accompanies the paper "Geometry-informed Neural Networks" (GINNs) and as an instance of GINNs "Generative Topology Optimization: Exploring Diverse Solutions in Structural Design" (also see [GenTO github](https://github.com/ml-jku/Generative-Topology-Optimization)).
+This project accompanies the paper "Geometry-informed Neural Networks" (GINNs) and as an instance of GINNs "Diverse Topology Optimization using Modulated Neural Fields" (also see [TOM github](https://github.com/ml-jku/Topology-Optimization-Modulated-Neural-Fields)).
 GINNs allow to train shape generative models without data by satisfying design requirements given as constraints and objectives.
 In particular, a diversity constraint makes these models generative.
 GINNs not only learn to generate multiple diverse solutions, but can also learn an organized latent space as shown above.
 
-More information on GenTO can be found below and on the [GenTO github page](https://github.com/ml-jku/Generative-Topology-Optimization).
+More information on TOM can be found below and on the [TOM github page](https://github.com/ml-jku/Topology-Optimization-Modulated-Neural-Fields).
 
 <img src="media/constraints.png" width="800"/>
 
 
 ## Updates to codebase
 
+
 #### 2025/02: 
-- Added support for GenTO.
+- add the checkpoint, config and a jupyter notebook for a GINN with 2D latent space 
+
+#### 2025/02: 
+- Added support for TOM.
 - Refactor s.t. config object does not leave the ginn_trainer.py. This way classes and functions used by the ginn_trainer.py are more modular and reusable.
 - For many-shape optimization, it is recommended to use surface.do_numerical_surface_points=True or do *_numerical versions, as they are usually faster. For a few-shape optimization, the flow-based surface points are faster.
 
@@ -49,7 +53,7 @@ Install the dependencies, ideally in a fresh environment
 or 
 ```conda env create -f requirements.yml```.
 
-GenTO has more dependencies, e.g. FenicsX or OpenMPI. 
+TOM has more dependencies, e.g. FenicsX or OpenMPI. 
 They can be tricker too install, that's why we dynamically import them only if they are needed for topology optimization (i.e. to compute compliance gradients). 
 These can be installed via conda
 ```conda env create -f environment.yml```.
@@ -86,12 +90,12 @@ With [notebooks/min_surf.ipynb](notebooks/minimal_surface.ipynb) you can train a
 }
 ```
 
-## Generative Topology Optimization: Exploring Diverse Solutions in Structural Design
+## Diverse Topology Optimization using Modulated Neural Fields
 
-### [GenTO github overview](https://github.com/ml-jku/Generative-Topology-Optimization)
+### [TOM github overview](https://github.com/ml-jku/Topology-Optimization-Modulated-Neural-Fields)
 
-Generative Topology optimization (GenTO) as an instance of GINNs is added in this repo. 
-It is reproducible by using the YAMLs in configs/GenTO.
+Topology Optimization using Modulated Neural Fields (TOM) as an instance of GINNs is added in this repo. 
+It is reproducible by using the YAMLs in configs/TOM.
 
 
 <img src="media/Jeb-combined_0_4_6.png" width="300"/>
