@@ -85,7 +85,8 @@ With [notebooks/min_surf.ipynb](notebooks/minimal_surface.ipynb) you can train a
 @inproceedings{berzins2025geometry,
   title={Geometry-Informed Neural Networks},
   author={Berzins, Arturs and Radler, Andreas and Volkmann, Eric and Sanokowski, Sebastian and Hochreiter, Sepp and Brandstetter, Johannes},
-  booktitle={Forty-second International Conference on Machine Learning}
+  booktitle={Forty-second International Conference on Machine Learning},
+  year=2025,
 }
 
 ```
