@@ -82,12 +82,12 @@ With [notebooks/min_surf.ipynb](notebooks/minimal_surface.ipynb) you can train a
 ## Citation
 
 ```
-@article{berzins2024geometry,
-  title={Geometry-informed neural networks},
+@inproceedings{berzins2025geometry,
+  title={Geometry-Informed Neural Networks},
   author={Berzins, Arturs and Radler, Andreas and Volkmann, Eric and Sanokowski, Sebastian and Hochreiter, Sepp and Brandstetter, Johannes},
-  journal={arXiv preprint arXiv:2402.14009},
-  year={2024}
+  booktitle={Forty-second International Conference on Machine Learning}
 }
+
 ```
 
 ## Diverse Topology Optimization using Modulated Neural Fields
